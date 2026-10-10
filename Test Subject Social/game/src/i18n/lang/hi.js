@@ -492,6 +492,12 @@ export default {
     'Hunter: {MOVE} aims, {A} fires': 'शिकारी: {MOVE} से निशाना, {A} से फ़ायर',
     'Runners: reach the green exit, {B} dives': 'धावक: हरे निकास तक पहुँचें, {B} से छलाँग',
     'Hold {A} at a container to search it': 'तलाशी के लिए किसी डिब्बे पर {A} दबाए रखें',
+    // LAN play (join codes for PCs and phones)
+    "Friends choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "दोस्त <b>ऑनलाइन जुड़ें</b> चुनकर यह कोड डालें (पीसी या फ़ोन)।",
+    "Everyone must be on the same network (Wi-Fi / LAN).": "सभी को एक ही नेटवर्क (Wi-Fi / LAN) पर होना चाहिए।",
+    "or open this address in a browser on your network": "या अपने नेटवर्क के किसी ब्राउज़र में यह पता खोलें",
+    "Network play is off — start the game without <b>--local</b> to let others join.": "नेटवर्क खेल बंद है — दूसरों को जोड़ने के लिए गेम को <b>--local</b> के बिना शुरू करें।",
+    "Type the join code shown on your friend's screen (HOST ONLINE).": "अपने दोस्त की स्क्रीन पर दिखा जॉइन कोड डालें (ऑनलाइन होस्ट करें)।",
   },
   patterns: {
     subjectName: 'सब्जेक्ट {1}',

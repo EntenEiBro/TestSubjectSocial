@@ -492,6 +492,12 @@ export default {
     'Hunter: {MOVE} aims, {A} fires': 'ハンター：{MOVE} で狙い、{A} で撃つ',
     'Runners: reach the green exit, {B} dives': '逃走者：緑の出口を目指せ、{B} でダイブ',
     'Hold {A} at a container to search it': '容器の前で {A} 長押しで捜索',
+    // LAN play (join codes for PCs and phones)
+    "Friends choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "友達は<b>オンラインで参加</b>を選んでこのコードを入力（PCまたはスマホ）。",
+    "Everyone must be on the same network (Wi-Fi / LAN).": "全員が同じネットワーク（Wi-Fi / LAN）にいる必要があります。",
+    "or open this address in a browser on your network": "またはネットワーク内のブラウザでこのアドレスを開く",
+    "Network play is off — start the game without <b>--local</b> to let others join.": "ネットワークプレイはオフです — <b>--local</b> なしで起動すると他の人が参加できます。",
+    "Type the join code shown on your friend's screen (HOST ONLINE).": "友達の画面に表示された参加コードを入力（オンラインでホスト）。",
   },
   patterns: {
     subjectName: '被験者{1}',

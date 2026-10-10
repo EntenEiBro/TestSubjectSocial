@@ -7,7 +7,12 @@ on Windows). No browser is opened. Closing the window quits the game.
 Usage:
     python play.py              fullscreen game window
     python play.py --windowed   1280x720 window instead of fullscreen
-    python play.py --lan        also allow online players from your network
+    python play.py --local      only this computer (no online players from your network)
+
+Online play works over your local network (LAN / Wi-Fi) by default: the
+server listens on port 8765 — the same port the phone app uses — so PCs and
+phones can join each other with the same join codes. The first launch may
+show a Windows Firewall prompt; allow access on private networks.
 
 In the game: F11 toggles fullscreen; the title menu has a QUIT option.
 If pywebview is unavailable, the game falls back to a browser app window.
@@ -50,12 +55,15 @@ def log(msg):
         print(msg)
 
 
-def free_port(preferred=8000):
+GAME_PORT = 8765  # same port as the phone app, so join codes work across devices
+
+
+def free_port(preferred=GAME_PORT, host="0.0.0.0"):
     """Use `preferred` if it is free, otherwise any free port."""
     for port in (preferred, 0):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                s.bind(("127.0.0.1", port))
+                s.bind((host, port))
                 return s.getsockname()[1]
             except OSError:
                 continue
@@ -138,12 +146,13 @@ def run_browser_fallback(url, windowed):
 
 
 def main():
-    lan = "--lan" in sys.argv
+    lan = "--local" not in sys.argv  # LAN (network) play is the default
     windowed = "--windowed" in sys.argv
     os.chdir(HERE)
 
-    port = free_port()
-    server = ThreadingHTTPServer(("0.0.0.0" if lan else "127.0.0.1", port), serve.GameHandler)
+    host = "0.0.0.0" if lan else "127.0.0.1"
+    port = free_port(GAME_PORT, host)
+    server = ThreadingHTTPServer((host, port), serve.GameHandler)
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://localhost:{port}/"

@@ -55,6 +55,12 @@ export async function runClient(code) {
   window.__onAppPause = () => Audio.suspend();
   window.__onAppResume = () => Audio.resume();
 
+  // Leaving: Esc returns to the player's own game (the phone app's back button does the same).
+  const home = new URLSearchParams(location.search).get('home');
+  if (home && /^https?:\/\//.test(home)) {
+    window.addEventListener('keydown', (e) => { if (e.code === 'Escape') location.href = home; });
+  }
+
   const input = new InputManager();
   ['kb1', 'kb2', 'pad0', 'pad1', 'pad2', 'pad3'].forEach((d) => input.controller(d));
   // Phones: on-screen joystick + buttons, always shown (they also drive the host's lobby),

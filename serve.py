@@ -1,10 +1,11 @@
 """Static file server + WebSocket signaling relay for Test Subject Social.
 
 Usage:
-    python serve.py [port]          local play only (binds 127.0.0.1)
-    python serve.py [port] --lan    also reachable from other machines (binds 0.0.0.0)
+    python serve.py [port]            reachable on your local network (binds 0.0.0.0) — LAN play
+    python serve.py [port] --local    this computer only (binds 127.0.0.1)
 
-Then open http://localhost:<port> (default 8000).
+Then open http://localhost:<port> (default 8765, the same port the phone app
+uses, so PCs and phones can join each other with join codes).
 
 Besides serving files (with caching disabled so module edits show up on a
 normal reload) this server provides two tiny endpoints used by online play:
@@ -274,8 +275,9 @@ def game_folder():
 def main():
     os.chdir(game_folder())
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    port = int(args[0]) if args else 8000
-    bind = "0.0.0.0" if "--lan" in sys.argv else "127.0.0.1"
+    port = int(args[0]) if args else 8765
+    # LAN play is the default; --local restricts the server to this computer.
+    bind = "127.0.0.1" if "--local" in sys.argv else "0.0.0.0"
     server = http.server.ThreadingHTTPServer((bind, port), GameHandler)
     server.daemon_threads = True
     print(f"Serving Test Subject Social on http://localhost:{port}")

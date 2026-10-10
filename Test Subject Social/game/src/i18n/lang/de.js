@@ -492,6 +492,12 @@ export default {
     'Hunter: {MOVE} aims, {A} fires': 'Jäger: {MOVE} zielt, {A} schießt',
     'Runners: reach the green exit, {B} dives': 'Läufer: zum grünen Ausgang, {B} hechtet',
     'Hold {A} at a container to search it': 'Halte {A} an einem Behälter gedrückt, um ihn zu durchsuchen',
+    // LAN play (join codes for PCs and phones)
+    "Friends choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "Freunde wählen <b>ONLINE BEITRETEN</b> und tippen diesen Code ein (PC oder Handy).",
+    "Everyone must be on the same network (Wi-Fi / LAN).": "Alle müssen im selben Netzwerk sein (WLAN / LAN).",
+    "or open this address in a browser on your network": "oder diese Adresse in einem Browser im Netzwerk öffnen",
+    "Network play is off — start the game without <b>--local</b> to let others join.": "Netzwerkspiel ist aus — starte das Spiel ohne <b>--local</b>, damit andere beitreten können.",
+    "Type the join code shown on your friend's screen (HOST ONLINE).": "Gib den Beitrittscode vom Bildschirm deines Freundes ein (ONLINE HOSTEN).",
   },
   patterns: {
     subjectName: 'SUBJEKT {1}',

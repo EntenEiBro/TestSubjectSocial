@@ -76,7 +76,7 @@ export function titleScreen(app) {
     { id: 'commendations', label: t('COMMENDATIONS') },
     { id: 'credits', label: t('CREDITS') },
   ];
-  if (app.platform === 'android') items.splice(2, 0, { id: 'join', label: t('JOIN ONLINE') }); // phone app
+  items.splice(2, 0, { id: 'join', label: t('JOIN ONLINE') }); // LAN play: join a PC or phone by code
   if (app.desktop) items.push({ id: 'quit', label: t('QUIT') }); // desktop / phone app only
   const state = { index: 0 };
   // The game's name stays untranslated (it is the brand); everything else is localised.
@@ -88,7 +88,7 @@ export function titleScreen(app) {
       <div class="hint">${pick('Tap an option', '{MOVE} choose · {A} confirm')}</div>
     </div>
     ${app.touch ? `<div class="gear-btn" data-tap="settings" title="${t('SETTINGS')}">⚙</div>` : ''}
-    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.3' })}</div>`;
+    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.4' })}</div>`;
   app.backdrop.mode = 'title';
   // Populate the pedestals with random volunteers for atmosphere.
   for (let i = 0; i < MAX_PLAYERS; i++) app.backdrop.setSlot(i, new Player(i, 'bot').look, i + 1);
@@ -233,10 +233,15 @@ export function onlineScreen(app) {
         : `<p class="small-note">${t('NO WI-FI CONNECTION — connect to Wi-Fi or turn on your hotspot.')}</p>`;
       return;
     }
-    el.innerHTML = `<div>${t('ROOM CODE')}</div><div class="online-code">${net.code}</div>
-      <div class="online-urls">${lan ? `${lan}<small>${t('friends on your network open this address')}</small>` : `<small>${t('Restart with <b>python serve.py {port} --lan</b> to let other machines join.', { port: PHONE_PORT })}</small>`}
-      ${phoneCode ? `${t('PHONE CODE')}: <b>${phoneCode}</b><small>${t('phones with the app: JOIN ONLINE → type this code')}</small>` : ''}
-      ${local}<small>${t('same machine (another window / browser)')}</small></div>${peers}`;
+    // PC: the join code works for PCs and phones alike (JOIN ONLINE); the LAN
+    // address is a fallback for browsers on other devices.
+    el.innerHTML = phoneCode
+      ? `<div>${t('JOIN CODE')}</div><div class="online-code">${phoneCode}</div>
+         <div class="online-urls">${t('Friends choose <b>JOIN ONLINE</b> and type this code (PC or phone).')}<small>${t('Everyone must be on the same network (Wi-Fi / LAN).')}</small>
+         ${lan}<small>${t('or open this address in a browser on your network')}</small></div>${peers}`
+      : `<div>${t('ROOM CODE')}</div><div class="online-code">${net.code}</div>
+         <div class="online-urls">${lan ? `${lan}<small>${t('friends on your network open this address')}</small>` : `<small>${t('Network play is off — start the game without <b>--local</b> to let others join.')}</small>`}
+         ${local}<small>${t('same machine (another window / browser)')}</small></div>${peers}`;
   };
   net.onChange = render;
   const html = `<div class="panel-screen wide"><h1>${t('HOST ONLINE')}</h1><div class="online-body"></div>
@@ -256,14 +261,16 @@ export function onlineScreen(app) {
  * player client (?join=ROOM). Resolves null when the player backs out.
  */
 export function joinScreen(app) {
-  const ownIp = window.AndroidBridge ? window.AndroidBridge.getLanIp() : null;
+  // Our own LAN address: the phone app asks Android, PCs ask the built-in server.
+  let ownIp = window.AndroidBridge ? window.AndroidBridge.getLanIp() : null;
+  if (!ownIp) fetch('/netinfo').then((r) => r.json()).then((j) => { if (j.lanEnabled) ownIp = j.lan; }).catch(() => {});
   if (app.touch) app.touch.setVisible(false); // free the screen for typing
   const html = `<div class="panel-screen"><h1>${t('JOIN ONLINE')}</h1>
-    <p>${t("Type the join code shown on your friend's phone (HOST ONLINE).")}</p>
+    <p>${t("Type the join code shown on your friend's screen (HOST ONLINE).")}</p>
     <input class="join-input" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" autocapitalize="characters" spellcheck="false">
     <div class="join-err"></div>
     <div><span class="join-btn" data-act="join">${t('JOIN')}</span><span class="join-btn secondary" data-act="back">${t('BACK')}</span></div>
-    <div class="hint">${t("Both phones must be on the same Wi-Fi (or use your friend's hotspot).")}</div></div>`;
+    <div class="hint">${t('Everyone must be on the same network (Wi-Fi / LAN).')}</div></div>`;
   return new Promise((resolve) => {
     let finished = false;
     const finish = (v) => {
@@ -280,7 +287,8 @@ export function joinScreen(app) {
       if (!target) { err.textContent = t('That code is not valid — it looks like ABCD-EFGH.'); Audio.sfx('wrong'); return; }
       Audio.sfx('select');
       err.textContent = t('Connecting to {host}…', { host: target.host });
-      location.href = `http://${target.host}:${PHONE_PORT}/?join=${target.room}`;
+      // `home` lets the client return here (Esc on PC; the phone's back button also works).
+      location.href = `http://${target.host}:${PHONE_PORT}/?join=${target.room}&home=${encodeURIComponent(location.origin + '/')}`;
     };
     app.overlay.className = 'overlay dim';
     app.overlay.innerHTML = html;

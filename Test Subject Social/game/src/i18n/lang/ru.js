@@ -492,6 +492,12 @@ export default {
     'Hunter: {MOVE} aims, {A} fires': 'Охотник: {MOVE} — прицел, {A} — огонь',
     'Runners: reach the green exit, {B} dives': 'Беглецы: бегите к зелёному выходу, {B} — нырок',
     'Hold {A} at a container to search it': 'Держи {A} у ёмкости, чтобы обыскать',
+    // LAN play (join codes for PCs and phones)
+    "Friends choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "Друзья выбирают <b>ВОЙТИ ОНЛАЙН</b> и вводят этот код (ПК или телефон).",
+    "Everyone must be on the same network (Wi-Fi / LAN).": "Все должны быть в одной сети (Wi-Fi / LAN).",
+    "or open this address in a browser on your network": "или откройте этот адрес в браузере в вашей сети",
+    "Network play is off — start the game without <b>--local</b> to let others join.": "Сетевая игра выключена — запусти игру без <b>--local</b>, чтобы другие могли войти.",
+    "Type the join code shown on your friend's screen (HOST ONLINE).": "Введи код подключения с экрана друга (СОЗДАТЬ ОНЛАЙН).",
   },
   patterns: {
     subjectName: 'СУБЪЕКТ {1}',

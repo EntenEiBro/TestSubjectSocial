@@ -492,6 +492,12 @@ export default {
     'Hunter: {MOVE} aims, {A} fires': '猎人：{MOVE} 瞄准，{A} 开火',
     'Runners: reach the green exit, {B} dives': '逃跑者：冲向绿色出口，{B} 扑倒',
     'Hold {A} at a container to search it': '在容器旁按住 {A} 搜索',
+    // LAN play (join codes for PCs and phones)
+    "Friends choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "好友选择<b>加入在线</b>并输入此代码（电脑或手机）。",
+    "Everyone must be on the same network (Wi-Fi / LAN).": "所有人必须在同一网络中（Wi-Fi / 局域网）。",
+    "or open this address in a browser on your network": "或在同一网络的浏览器中打开此地址",
+    "Network play is off — start the game without <b>--local</b> to let others join.": "网络游戏已关闭——不带 <b>--local</b> 启动游戏即可让他人加入。",
+    "Type the join code shown on your friend's screen (HOST ONLINE).": "输入好友屏幕上显示的加入代码（创建在线房间）。",
   },
   patterns: {
     subjectName: '受试者 {1}',

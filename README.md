@@ -62,26 +62,30 @@ Requirements: any modern desktop browser with WebGL. All third-party assets
 Python 3 is only used as a static file server (it serves `Test Subject Social/game`).
 
 ```bash
-python serve.py 8000
+python serve.py
 ```
 
-Then open <http://localhost:8000>. (`python -m http.server` works too, but
-`serve.py` disables caching, which is handy while editing.)
+Then open <http://localhost:8765>. The server listens on your local network
+by default (LAN play); add `--local` to restrict it to this computer.
 
-## Online play
+## Online play (LAN)
 
-Online play works like Remote Play: the **host** runs the game and streams
-it; **remote players** only need a browser.
+Online play runs over your local network (Wi-Fi / LAN) — no internet server
+needed. The **host** runs the game and streams it; **joining players** see the
+live game and play with their own keyboard, gamepad or touch controls. PCs and
+phones can mix freely, because every copy of the game listens on port 8765.
 
-1. The host starts the server with LAN access: `python serve.py 8000 --lan`
-2. In the title menu choose **HOST ONLINE**. A 4-letter room code and a
-   join address (`http://<host-ip>:8000/?join=CODE`) are shown.
-3. Friends open that address. They see the live game (video stream with
-   the menus/HUD mirrored as crisp HTML and all sounds replayed locally)
-   and use their own keyboard (WASD/F/G or arrows/Enter/R-Shift) or gamepad.
-4. In **Subject Intake** each remote player presses Ⓐ to take a seat and
-   customizes their subject like a local player. Mix and match local
-   players, online players and bots in the same session.
+1. Everyone is on the same network (or phones join the host phone's hotspot).
+2. The host chooses **HOST ONLINE**. A join code like `QAYC-7K2P` appears
+   (plus a network address for browsers, e.g. `http://192.168.2.94:8765/?join=QAYC`).
+3. Friends choose **JOIN ONLINE** — on a PC or a phone — and type the code.
+   (Esc on a PC, or the phone's back button, leaves the friend's game.)
+4. In **Subject Intake** each joining player presses their action button to take
+   a seat and customizes their subject like a local player. Mix and match
+   local players, online players and bots in the same session.
+
+On Windows, the first launch shows a **Windows Firewall** prompt — allow access
+on private networks, otherwise other devices cannot reach your game.
 
 Technical notes: the bundled `serve.py` provides a tiny WebSocket relay
 (standard library only) used to exchange WebRTC offers/answers; video, UI and
@@ -214,7 +218,7 @@ export class MyGame extends Minigame {
 ```
 
 Register it in `game/src/minigames/index.js`. For quick iteration launch it
-directly with bots: `http://localhost:8000/?game=mygame&quick`
+directly with bots: `http://localhost:8765/?game=mygame&quick`
 (`&players=2`, `&humans=1` to take seat 1 yourself with WASD, `&loop` to repeat).
 
 ## Credits
