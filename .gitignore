@@ -9,6 +9,7 @@ dist/
 
 # Android (rebuild with: python build_apk.py)
 *.apk
+Android Version.zip
 android/.gradle/
 android/app/build/
 android/build/

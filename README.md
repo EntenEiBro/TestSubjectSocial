@@ -33,7 +33,8 @@ From source you can also use `python play.py` (same app window) or the
 
 ## Android app
 
-**`Test Subject Social.apk`** (in the project folder) is the phone version:
+The **`Android Version`** folder holds everything needed to install the phone
+version: **`Test Subject Social.apk`** plus **`HOW TO INSTALL.txt`**. The app is:
 the same game with on-screen touch controls (floating joystick on the left,
 Ⓐ/Ⓑ on the right, pause at the top, +BOT/−BOT in the lobby). Bluetooth
 gamepads work too. Android 7.0 or newer, landscape, fully offline.

@@ -14,6 +14,7 @@ import { sleep } from '../core/util.js';
 import { COMMENDATIONS, Commendations } from '../game/achievements.js';
 import { makeJoinCode, parseJoinCode, PHONE_PORT } from '../net/joincode.js';
 import { RESOLUTIONS } from '../core/engine.js';
+import { Haptics } from '../core/haptics.js';
 
 /**
  * Render HTML into the overlay and run `handler(dt, done)` each frame until done(value).
@@ -81,7 +82,7 @@ export function titleScreen(app) {
       <ul class="menu">${items.map((it, i) => `<li data-tap="${i}">${it.label}</li>`).join('')}</ul>
       <div class="hint">${app.touch ? 'Tap an option' : 'W/S or ↑/↓ to choose · F / ENTER / Ⓐ to confirm · or click'}</div>
     </div>
-    <div class="corner-note">FACILITY TERMINAL v1.0 · ALL OUTCOMES FINAL</div>`;
+    <div class="corner-note">FACILITY TERMINAL v1.0.1 · ALL OUTCOMES FINAL</div>`;
   app.backdrop.mode = 'title';
   // Populate the pedestals with random volunteers for atmosphere.
   for (let i = 0; i < MAX_PLAYERS; i++) app.backdrop.setSlot(i, new Player(i, 'bot').look, i + 1);
@@ -118,6 +119,14 @@ export function optionsScreen(app) {
     { key: 'gore', label: 'GORE', get: () => (s.gore ? 'ON' : 'REDUCED'), step: () => { s.gore = !s.gore; } },
     { key: 'back', label: 'BACK', get: () => '', step: () => {} },
   ];
+  // Vibration only matters on phones / tablets.
+  if (app.touch && Haptics.supported) {
+    rows.splice(rows.length - 1, 0, {
+      key: 'haptics', label: 'VIBRATION',
+      get: () => (s.haptics !== false ? 'ON' : 'OFF'),
+      step: () => { s.haptics = s.haptics === false; Haptics.enabled = s.haptics; if (s.haptics) Haptics.play('click'); },
+    });
+  }
   const state = { index: 0 };
   const render = () => {
     const el = app.overlay.querySelector('.opt-list');

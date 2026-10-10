@@ -14,6 +14,7 @@ import { Audio } from '../core/audio.js';
 import { InputManager } from '../core/input.js';
 import { Signal, rtcConfig } from './signal.js';
 import { TouchControls, isTouchDevice } from '../ui/touch.js';
+import { Haptics } from '../core/haptics.js';
 
 const SEND_MS = 16;
 
@@ -37,10 +38,19 @@ export async function runClient(code) {
   };
   status('CONNECTING', 'Contacting the facility…');
 
+  // Silence the mirrored sounds while this app is in the background.
+  document.addEventListener('visibilitychange', () => (document.hidden ? Audio.suspend() : Audio.resume()));
+  window.__onAppPause = () => Audio.suspend();
+  window.__onAppResume = () => Audio.resume();
+
   const input = new InputManager();
   ['kb1', 'kb2', 'pad0', 'pad1', 'pad2', 'pad3'].forEach((d) => input.controller(d));
-  // Phones: on-screen joystick + buttons, always shown (they also drive the host's lobby).
-  if (isTouchDevice()) new TouchControls(input, { alwaysVisible: true });
+  // Phones: on-screen joystick + buttons, always shown (they also drive the host's lobby),
+  // plus vibration that follows the host's sound effects.
+  if (isTouchDevice()) {
+    new TouchControls(input, { alwaysVisible: true });
+    Audio.onHaptic = (name) => Haptics.fromSfx(name);
+  }
 
   let signal;
   try {

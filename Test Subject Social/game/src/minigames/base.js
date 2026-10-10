@@ -24,6 +24,7 @@ import { makeBrain } from '../core/ai.js';
 import { subjectFor } from '../core/characters.js';
 import { playerRing } from '../core/environment.js';
 import { Commendations } from '../game/achievements.js';
+import { Haptics } from '../core/haptics.js';
 
 export class Minigame {
   /**
@@ -146,6 +147,8 @@ export class Minigame {
     }
     seat.tagTarget = null;
     this.hud.markDead(seat);
+    // The phone's own player feels their death (a long, distinct buzz).
+    if (seat.player.device === 'touch') Haptics.play('death');
     const sfx = sound || { gib: 'splat', shot: 'shot', crush: 'crunch', fall: 'whoosh', snap: 'snap', burn: 'burn', slice: 'saw' }[style];
     if (sfx) Audio.sfx(sfx);
     if (style !== 'fall') Audio.sfx('splat', { vol: 0.6 });

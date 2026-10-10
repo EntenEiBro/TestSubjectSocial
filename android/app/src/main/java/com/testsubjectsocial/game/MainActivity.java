@@ -36,7 +36,17 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getLanIp() { return GameServer.lanAddress(); }
+
+        /** Crisp system haptic: "tick" (lightest), "click" or "heavy". */
+        @JavascriptInterface
+        public void haptic(String kind) { haptics.predefined(kind); }
+
+        /** Shaped vibration: comma-separated timings (ms) and amplitudes (0-255). */
+        @JavascriptInterface
+        public void vibrate(String timingsCsv, String amplitudesCsv) { haptics.waveform(timingsCsv, amplitudesCsv); }
     }
+
+    private Haptics haptics;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -44,6 +54,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        haptics = new Haptics(this);
         server = new GameServer(getAssets());
         server.start(); // if the port is taken, an earlier instance is still serving
 
@@ -108,16 +119,24 @@ public class MainActivity extends Activity {
                 null);
     }
 
+    /**
+     * Leaving the app (home button, app switcher, screen off): tell the game to
+     * mute its audio and pause the current round, then freeze the WebView's
+     * JavaScript timers so nothing keeps running in the background.
+     */
     @Override
     protected void onPause() {
         super.onPause();
+        web.evaluateJavascript("window.__onAppPause && window.__onAppPause();", ignored -> web.pauseTimers());
         web.onPause();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        web.resumeTimers();
         web.onResume();
+        web.evaluateJavascript("window.__onAppResume && window.__onAppResume();", null);
         enterImmersive();
     }
 

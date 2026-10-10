@@ -30,13 +30,14 @@ import { Commendations } from './game/achievements.js';
 import { NetHost } from './net/host.js';
 import { runClient } from './net/client.js';
 import { TouchControls, isTouchDevice } from './ui/touch.js';
+import { Haptics } from './core/haptics.js';
 
 const SETTINGS_KEY = 'tss.settings.v1';
 
 class App {
   constructor() {
     // resHeight replaces the old resLevel setting; everyone starts at 1080p.
-    this.settings = { master: 0.8, music: 0.5, sfx: 0.9, botLevel: 1, resHeight: 1080, gore: true };
+    this.settings = { master: 0.8, music: 0.5, sfx: 0.9, botLevel: 1, resHeight: 1080, gore: true, haptics: true };
     try { Object.assign(this.settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (_) { /* storage unavailable */ }
     delete this.settings.resLevel;
     if (!RESOLUTIONS.some((r) => r.h === this.settings.resHeight)) this.settings.resHeight = 1080;
@@ -67,6 +68,19 @@ class App {
     });
     // On-screen controls on phones and tablets.
     this.touch = isTouchDevice() ? new TouchControls(this.input) : null;
+    // Leaving the app (home button, app switcher, minimised window): silence
+    // everything and pause an active round, so nothing happens behind your back.
+    const onHidden = () => {
+      Audio.suspend();
+      if (this.game && this.game.state === 'play' && !this.paused) this.openPause();
+    };
+    const onVisible = () => Audio.resume();
+    document.addEventListener('visibilitychange', () => (document.hidden ? onHidden() : onVisible()));
+    window.__onAppPause = onHidden;   // called by the Android app (MainActivity.onPause)
+    window.__onAppResume = onVisible; // called by the Android app (MainActivity.onResume)
+    // Vibration feedback on phones: follows the game's sound effects (haptics.js).
+    Haptics.enabled = this.settings.haptics !== false;
+    if (this.touch || this.platform === 'android') Audio.onHaptic = (name) => Haptics.fromSfx(name);
     Commendations.onUnlock = (def) => this.toast(`COMMENDATION — ${def.title}`, def.desc);
     this.showBackdrop();
     this.engine.start((dt) => this.frame(dt));

@@ -1,0 +1,74 @@
+TEST SUBJECT SOCIAL — ANDROID
+=============================
+
+This folder contains everything you need:
+
+  Test Subject Social.apk   the game (about 1 MB)
+  HOW TO INSTALL.txt        this guide
+
+Requirements: an Android phone or tablet with Android 7.0 or newer.
+No internet connection, account or Play Store needed.
+
+
+1. GET THE APK ONTO THE PHONE
+-----------------------------
+Use whichever is easiest:
+
+  - Send it to yourself (Google Drive, email, WhatsApp, Signal, Discord, ...)
+    and open it on the phone.
+  - Or connect the phone to a PC with a USB cable, choose "File transfer" on
+    the phone, and copy "Test Subject Social.apk" into the phone's Download
+    folder.
+
+
+2. INSTALL IT
+-------------
+  1. On the phone, open the APK (tap it in your messages/email, or open the
+     "Files" app -> Downloads -> "Test Subject Social.apk").
+  2. Android will say that, for security, this app source can't install
+     apps. Tap "Settings", switch on "Allow from this source", then go back.
+     (This appears because the game is not from the Play Store. You only
+     need to allow it once for that app.)
+  3. Tap "Install".
+  4. If Google Play Protect asks to scan the app, you can let it scan or
+     tap "Install anyway".
+  5. Tap "Open" — or find "Test Subject Social" in your app drawer.
+
+Updating later: install the new APK the same way. Your settings and
+commendations are kept.
+
+
+3. PLAYING
+----------
+  - The game runs in landscape. Menus work by tapping the buttons.
+  - In SUBJECT INTAKE (the lobby): tap an empty seat to join, tap +BOT to
+    fill the other seats, then tap READY.
+  - During a round: drag anywhere on the left half of the screen to move
+    (a joystick appears under your thumb), tap (A) for the action and
+    (B) to shove. The II button at the top pauses.
+  - The phone's Back button pauses the game.
+  - Bluetooth gamepads also work.
+
+
+4. PLAYING ONLINE WITH A FRIEND'S PHONE
+---------------------------------------
+Both phones need the app installed. No PC or internet needed.
+
+  1. Put both phones on the same Wi-Fi - or turn on the hotspot on one phone
+     and connect the other phone to it.
+  2. Phone 1 (host): HOST ONLINE -> a join code like QAYC-7K2P appears.
+  3. Phone 2: JOIN ONLINE -> type the code -> JOIN.
+  4. Phone 2 taps (A) in the lobby to take a seat. Have fun.
+
+  The friend's Back button returns them to their own game.
+
+
+TROUBLESHOOTING
+---------------
+  - "App not installed": uninstall the old version first, then install again.
+  - No "Install" button / blocked: make sure "Allow from this source" is on
+    for the app you used to open the APK (Settings -> Apps -> Special app
+    access -> Install unknown apps).
+  - JOIN ONLINE says the code is not valid or can't connect: check that both
+    phones are on the same Wi-Fi (or hotspot) and type the code exactly as
+    shown on the host phone.

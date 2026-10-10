@@ -1,4 +1,7 @@
-"""Build the Android app:  Test Subject Social.apk  (in this folder)
+"""Build the Android app:  Android Version/Test Subject Social.apk
+
+The "Android Version" folder is what you hand to people: the APK plus
+"HOW TO INSTALL.txt".
 
 Requirements (installed once under D:\\AndroidDev, see README):
     JDK 17, Android SDK (platform-tools, platforms;android-34, build-tools;34.0.0), Gradle 8.7
@@ -21,7 +24,7 @@ TOOLS = os.environ.get("TSS_ANDROID_TOOLS", r"D:\AndroidDev")
 JDK = os.path.join(TOOLS, "jdk")
 SDK = os.path.join(TOOLS, "sdk")
 GRADLE = os.path.join(TOOLS, "gradle-8.7", "bin", "gradle.bat" if os.name == "nt" else "gradle")
-OUTPUT = os.path.join(ROOT, "Test Subject Social.apk")
+OUTPUT = os.path.join(ROOT, "Android Version", "Test Subject Social.apk")
 
 
 def main():
@@ -48,6 +51,7 @@ def main():
     subprocess.check_call([GRADLE, "--no-daemon", "assembleRelease"], cwd=ANDROID, env=env)
 
     built = os.path.join(ANDROID, "app", "build", "outputs", "apk", "release", "app-release.apk")
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
     shutil.copy2(built, OUTPUT)
     print(f"\nBuilt: {OUTPUT} ({os.path.getsize(OUTPUT) / 1e6:.1f} MB)")
 

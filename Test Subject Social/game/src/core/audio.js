@@ -17,6 +17,8 @@ class AudioEngine {
     this._noiseBuf = null;
     /** Optional observer `(kind: 'sfx'|'music', name, opts)` — used by online hosting. */
     this.onEvent = null;
+    /** Optional `(sfxName)` callback for haptic feedback. */
+    this.onHaptic = null;
     // Browsers require a user gesture before audio can start.
     const unlock = () => { this.init(); window.removeEventListener('keydown', unlock); window.removeEventListener('pointerdown', unlock); };
     window.addEventListener('keydown', unlock);
@@ -24,7 +26,7 @@ class AudioEngine {
   }
 
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state === 'suspended' && !this.suspended) this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
@@ -43,6 +45,21 @@ class AudioEngine {
     const d = this._noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     if (this._pendingMusic) { const m = this._pendingMusic; this._pendingMusic = null; this.music(m); }
+  }
+
+  /**
+   * Freeze all sound (app sent to the background). The music scheduler is
+   * driven by the audio clock, which stops while suspended, so nothing piles up.
+   */
+  suspend() {
+    this.suspended = true;
+    if (this.ctx && this.ctx.state === 'running') this.ctx.suspend();
+  }
+
+  /** Continue after suspend(). */
+  resume() {
+    this.suspended = false;
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
 
   setVolume(kind, v) {
@@ -99,6 +116,7 @@ class AudioEngine {
   /** Play a named sound effect. Unknown names are ignored. */
   sfx(name, opts = {}) {
     if (this.onEvent) this.onEvent('sfx', name, opts); // mirrored to online players
+    if (this.onHaptic) this.onHaptic(name);            // vibration on phones (haptics.js)
     if (!this.ctx) return;
     const v = opts.vol ?? 1;
     const fx = {

@@ -15,6 +15,8 @@
  * (stick + buttons) work at the same time.
  */
 
+import { Haptics } from '../core/haptics.js';
+
 const STICK_RADIUS = 0.11; // as a fraction of the stage height
 
 /** Keep receiving a finger's events even if it slides off the element (best effort). */
@@ -96,6 +98,7 @@ export class TouchControls {
       this.origin = { x: e.clientX - r.left, y: e.clientY - r.top };
       Object.assign(this.el.stick.style, { left: `${this.origin.x}px`, top: `${this.origin.y}px` });
       this.el.stick.classList.remove('hidden');
+      Haptics.play('tick');
       capture(this.el.zone, e.pointerId);
       this._moveStick(e, radiusPx());
     });
@@ -119,6 +122,7 @@ export class TouchControls {
         capture(btn, e.pointerId);
         this.buttons.set(e.pointerId, btn.dataset.btn);
         btn.classList.add('down');
+        Haptics.play('press');
         this._syncButtons();
       });
       const up = (e) => {
@@ -133,7 +137,7 @@ export class TouchControls {
 
     // --- one-shot action buttons
     for (const el of this.root.querySelectorAll('[data-action]')) {
-      el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.input.action(el.dataset.action); });
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); Haptics.play('click'); this.input.action(el.dataset.action); });
     }
 
     // Keep the browser from scrolling / zooming / long-press menus.
