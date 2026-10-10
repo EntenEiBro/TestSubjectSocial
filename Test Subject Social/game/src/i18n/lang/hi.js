@@ -498,6 +498,15 @@ export default {
     "or open this address in a browser on your network": "या अपने नेटवर्क के किसी ब्राउज़र में यह पता खोलें",
     "Network play is off — start the game without <b>--local</b> to let others join.": "नेटवर्क खेल बंद है — दूसरों को जोड़ने के लिए गेम को <b>--local</b> के बिना शुरू करें।",
     "Type the join code shown on your friend's screen (HOST ONLINE).": "अपने दोस्त की स्क्रीन पर दिखा जॉइन कोड डालें (ऑनलाइन होस्ट करें)।",
+    // Internet play (PeerJS)
+    "INTERNET CODE": "इंटरनेट कोड",
+    "Friends anywhere choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "कहीं से भी दोस्त <b>ऑनलाइन जुड़ें</b> चुनकर यह कोड डालें (पीसी या फ़ोन)।",
+    "INTERNET PLAY UNAVAILABLE — check your internet connection.": "इंटरनेट खेल उपलब्ध नहीं — अपना इंटरनेट कनेक्शन जाँचें।",
+    "SAME WI-FI / LAN (no internet needed)": "एक ही Wi-Fi / LAN (इंटरनेट की ज़रूरत नहीं)",
+    "Internet code: 6 letters (e.g. K7QPXW) · LAN code: ABCD-EFGH (same Wi-Fi)": "इंटरनेट कोड: 6 अक्षर (जैसे K7QPXW) · LAN कोड: ABCD-EFGH (एक ही Wi-Fi)",
+    "Connecting…": "जुड़ रहा है…",
+    "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "यह कोड मान्य नहीं — यह K7QPXW या ABCD-EFGH जैसा दिखता है।",
+    "The online service is not reachable.": "ऑनलाइन सेवा तक पहुँच नहीं हो पा रही।",
   },
   patterns: {
     subjectName: 'सब्जेक्ट {1}',

@@ -12,6 +12,25 @@
 export const PHONE_PORT = 8765;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 symbols, no 0/O/1/I
 
+/**
+ * Internet codes (PeerJS Cloud): 6 symbols from the same unambiguous
+ * alphabet, e.g. "K7QPXW". The public PeerJS id is derived from it.
+ */
+export function makeInternetCode() {
+  let s = '';
+  for (let i = 0; i < 6; i++) s += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  return s;
+}
+
+/** PeerJS id for an internet code (namespaced so it won't clash with other apps). */
+export const internetPeerId = (code) => `test-subject-social-${code.toLowerCase()}`;
+
+/** True if the typed text looks like an internet code (6 symbols, no dash). */
+export function isInternetCode(text) {
+  const clean = String(text).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return clean.length === 6 && [...clean].every((ch) => ALPHABET.includes(ch)) ? clean : null;
+}
+
 /** Build a join code from a room code and the host's IPv4 address. */
 export function makeJoinCode(room, hostIp) {
   const parts = hostIp.split('.').map(Number);

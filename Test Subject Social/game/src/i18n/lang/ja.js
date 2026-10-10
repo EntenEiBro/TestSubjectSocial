@@ -498,6 +498,15 @@ export default {
     "or open this address in a browser on your network": "またはネットワーク内のブラウザでこのアドレスを開く",
     "Network play is off — start the game without <b>--local</b> to let others join.": "ネットワークプレイはオフです — <b>--local</b> なしで起動すると他の人が参加できます。",
     "Type the join code shown on your friend's screen (HOST ONLINE).": "友達の画面に表示された参加コードを入力（オンラインでホスト）。",
+    // Internet play (PeerJS)
+    "INTERNET CODE": "インターネットコード",
+    "Friends anywhere choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "どこにいる友達も<b>オンラインで参加</b>を選んでこのコードを入力（PCまたはスマホ）。",
+    "INTERNET PLAY UNAVAILABLE — check your internet connection.": "インターネットプレイは利用できません — 接続を確認してください。",
+    "SAME WI-FI / LAN (no internet needed)": "同じ Wi-Fi / LAN（インターネット不要）",
+    "Internet code: 6 letters (e.g. K7QPXW) · LAN code: ABCD-EFGH (same Wi-Fi)": "インターネットコード：6文字（例 K7QPXW）・LANコード：ABCD-EFGH（同じWi-Fi）",
+    "Connecting…": "接続中…",
+    "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "無効なコードです — K7QPXW や ABCD-EFGH の形式です。",
+    "The online service is not reachable.": "オンラインサービスに接続できません。",
   },
   patterns: {
     subjectName: '被験者{1}',

@@ -110,6 +110,8 @@ kbd { display: inline-block; font-family: 'VT323', monospace; font-size: 1.05em;
 .online-code { font-family: 'Black Ops One'; font-size: calc(var(--u) * 12); color: var(--crt); letter-spacing: 0.2em; margin: calc(var(--u) * 1) 0; text-shadow: 0 0 calc(var(--u) * 2) rgba(71,255,106,0.4); }
 .online-urls { font-family: 'VT323', monospace; font-size: calc(var(--u) * 3); color: var(--bone); line-height: 1.4; }
 .online-urls small { color: var(--bone-dim); font-size: calc(var(--u) * 2.2); display: block; }
+.online-urls + .online-urls { margin-top: calc(var(--u) * 2); }
+.online-urls b { display: block; font-family: 'Black Ops One'; font-size: calc(var(--u) * 5); color: var(--crt); letter-spacing: 0.15em; font-weight: normal; }
 .online-peers { font-family: 'VT323', monospace; font-size: calc(var(--u) * 3); color: var(--hazard); margin-top: calc(var(--u) * 1.5); }
 
 /* Film grain + vignette (pure CSS, animated) */

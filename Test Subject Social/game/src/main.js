@@ -28,7 +28,7 @@ import { playProgram, playRound } from './game/flow.js';
 import { REGISTRY, findGame } from './minigames/index.js';
 import { Commendations } from './game/achievements.js';
 import { NetHost } from './net/host.js';
-import { runClient } from './net/client.js';
+import { runClient, runInternetClient } from './net/client.js';
 import { TouchControls, isTouchDevice } from './ui/touch.js';
 import { Haptics } from './core/haptics.js';
 import { initInputMode } from './ui/prompts.js';
@@ -228,10 +228,18 @@ class App {
 
 // Wait (briefly) for the web fonts so canvas-painted stencils use them.
 const fontsReady = document.fonts ? document.fonts.load('80px "Black Ops One"').catch(() => {}) : Promise.resolve();
-// `?join=CODE` turns this page into a remote controller/viewer for an online host.
-const joinCode = new URLSearchParams(location.search).get('join');
+// `?join=CODE` (LAN) or `?peer=CODE` (internet) turns this page into a remote
+// controller/viewer for an online host.
+const params = new URLSearchParams(location.search);
+const joinCode = params.get('join');
+const peerCode = params.get('peer');
+const start = () => {
+  if (peerCode) return runInternetClient(peerCode.toUpperCase());
+  if (joinCode) return runClient(joinCode.toUpperCase());
+  return new App().run();
+};
 // In the desktop build pywebview injects its API shortly after load.
 const desktopReady = window.pywebview ? Promise.resolve()
   : new Promise((r) => { window.addEventListener('pywebviewready', r, { once: true }); setTimeout(r, 600); });
 Promise.all([Promise.race([fontsReady, new Promise((r) => setTimeout(r, 2500))]), desktopReady])
-  .then(() => (joinCode ? runClient(joinCode.toUpperCase()) : new App().run()));
+  .then(start);

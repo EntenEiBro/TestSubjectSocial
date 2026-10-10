@@ -43,11 +43,12 @@ Install: copy the .apk to the phone (USB, cloud drive, messenger…), tap it
 and allow "install unknown apps" for that source when Android asks. Or plug
 the phone in with USB debugging enabled and run `python build_apk.py --install`.
 
-Online with a friend's phone (no PC needed): both phones on the same Wi-Fi,
-or the friend connects to the host phone's hotspot. Host: **HOST ONLINE** →
-a join code like `QAYC-7K2P` appears. Friend: **JOIN ONLINE** → type the
-code → press Ⓐ in the lobby to take a seat. The phone's back button leaves a
-friend's game (or pauses your own).
+Online with a friend's phone (no PC needed): Host: **HOST ONLINE** → an
+**internet code** like `K7QPXW` appears — it works from anywhere with mobile
+data or any Wi-Fi. Friend: **JOIN ONLINE** → type the code → press Ⓐ in the
+lobby to take a seat. On the same Wi-Fi (or the host phone's hotspot) the LAN
+code like `QAYC-7K2P` also works without internet. The phone's back button
+leaves a friend's game (or pauses your own).
 
 Rebuild after changing the game: `python build_apk.py` (needs JDK 17, the
 Android SDK and Gradle 8.7 under `D:\AndroidDev`). The Android shell lives in
@@ -58,7 +59,8 @@ copied in from `Test Subject Social/game` at build time.
 ## Running from source
 
 Requirements: any modern desktop browser with WebGL. All third-party assets
-(three.js, fonts) are bundled in `game/vendor/`, so no internet is needed.
+(three.js, fonts, PeerJS) are bundled in `game/vendor/`, so no internet is
+needed (except for internet online play).
 Python 3 is only used as a static file server (it serves `Test Subject Social/game`).
 
 ```bash
@@ -68,31 +70,36 @@ python serve.py
 Then open <http://localhost:8765>. The server listens on your local network
 by default (LAN play); add `--local` to restrict it to this computer.
 
-## Online play (LAN)
+## Online play (internet + LAN)
 
-Online play runs over your local network (Wi-Fi / LAN) — no internet server
-needed. The **host** runs the game and streams it; **joining players** see the
-live game and play with their own keyboard, gamepad or touch controls. PCs and
-phones can mix freely, because every copy of the game listens on port 8765.
+The **host** runs the game and streams it; **joining players** see the live
+game and play with their own keyboard, gamepad or touch controls. PCs and
+phones mix freely. HOST ONLINE opens two rooms at once:
 
-1. Everyone is on the same network (or phones join the host phone's hotspot).
-2. The host chooses **HOST ONLINE**. A join code like `QAYC-7K2P` appears
-   (plus a network address for browsers, e.g. `http://192.168.2.94:8765/?join=QAYC`).
-3. Friends choose **JOIN ONLINE** — on a PC or a phone — and type the code.
+- **Internet code** (6 letters, e.g. `K7QPXW`) — friends anywhere can join.
+  [PeerJS Cloud](https://peerjs.com) (free public broker at `0.peerjs.com`)
+  introduces the two devices; the game itself then flows directly between them.
+- **LAN code** (e.g. `QAYC-7K2P`) — same Wi-Fi / LAN or the host phone's
+  hotspot, works without internet. Every copy of the game listens on port 8765.
+
+1. The host chooses **HOST ONLINE** and shares one of the codes.
+2. Friends choose **JOIN ONLINE** — on a PC or a phone — and type the code.
    (Esc on a PC, or the phone's back button, leaves the friend's game.)
-4. In **Subject Intake** each joining player presses their action button to take
+3. In **Subject Intake** each joining player presses their action button to take
    a seat and customizes their subject like a local player. Mix and match
    local players, online players and bots in the same session.
 
 On Windows, the first launch shows a **Windows Firewall** prompt — allow access
-on private networks, otherwise other devices cannot reach your game.
+on private networks, otherwise other devices on your LAN cannot reach your game.
 
-Technical notes: the bundled `serve.py` provides a tiny WebSocket relay
-(standard library only) used to exchange WebRTC offers/answers; video, UI and
-input then flow peer-to-peer. On a LAN no extra servers are needed. For play
-over the internet the host's port must be reachable and a STUN server is
-required (append `?stun=stun.example.org:19302` to both pages, or edit
-`rtcConfig()` in `game/src/net/signal.js`).
+Technical notes: internet rooms use the bundled PeerJS library
+(`game/vendor/peerjs`, MIT); the host registers the id
+`test-subject-social-<code>` and calls each joining player with the video
+stream. Very strict networks (some corporate or mobile carriers) can block
+direct WebRTC links; then use the LAN code or a hotspot. LAN rooms use the tiny
+WebSocket relay in `serve.py` (standard library only) / the Android app's
+`GameServer` to exchange WebRTC offers; video, UI and input then flow
+peer-to-peer.
 
 ## Controls
 
@@ -193,9 +200,10 @@ src/ui/
   hud.js              in-round HUD (timer, panels, banners, kill feed, name tags)
   backdrop.js         3D intake room behind the menus
 src/net/
-  signal.js           relay WebSocket wrapper, room codes, WebRTC config
-  host.js             NetHost: per-peer video stream, UI/audio mirroring, remote input
-  client.js           remote-player page (?join=CODE): video, mirrored UI, input upload
+  signal.js           LAN relay WebSocket wrapper, room codes, WebRTC config
+  joincode.js         LAN join codes (room + host address) and internet codes
+  host.js             NetHost: LAN + PeerJS rooms, per-peer video, UI/audio mirroring, remote input
+  client.js           remote-player page (?join=ROOM LAN / ?peer=CODE internet)
 src/minigames/
   base.js             Minigame base class (the contract every round implements)
   index.js            registry (add new rounds here)
@@ -224,5 +232,6 @@ directly with bots: `http://localhost:8765/?game=mygame&quick`
 ## Credits
 
 Original code and procedural content. Rendering: [three.js](https://threejs.org) (MIT).
+Internet play: [PeerJS](https://peerjs.com) (MIT).
 Fonts: Black Ops One and VT323 (SIL Open Font License 1.1), Special Elite
 (Apache License 2.0), bundled from Google Fonts — license texts in `game/vendor/`.

@@ -498,6 +498,15 @@ export default {
     "or open this address in a browser on your network": "oder diese Adresse in einem Browser im Netzwerk öffnen",
     "Network play is off — start the game without <b>--local</b> to let others join.": "Netzwerkspiel ist aus — starte das Spiel ohne <b>--local</b>, damit andere beitreten können.",
     "Type the join code shown on your friend's screen (HOST ONLINE).": "Gib den Beitrittscode vom Bildschirm deines Freundes ein (ONLINE HOSTEN).",
+    // Internet play (PeerJS)
+    "INTERNET CODE": "INTERNET-CODE",
+    "Friends anywhere choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "Freunde überall wählen <b>ONLINE BEITRETEN</b> und tippen diesen Code ein (PC oder Handy).",
+    "INTERNET PLAY UNAVAILABLE — check your internet connection.": "INTERNETSPIEL NICHT VERFÜGBAR — prüfe deine Internetverbindung.",
+    "SAME WI-FI / LAN (no internet needed)": "GLEICHES WLAN / LAN (kein Internet nötig)",
+    "Internet code: 6 letters (e.g. K7QPXW) · LAN code: ABCD-EFGH (same Wi-Fi)": "Internet-Code: 6 Zeichen (z. B. K7QPXW) · LAN-Code: ABCD-EFGH (gleiches WLAN)",
+    "Connecting…": "Verbinde…",
+    "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "Dieser Code ist ungültig — er sieht aus wie K7QPXW oder ABCD-EFGH.",
+    "The online service is not reachable.": "Der Online-Dienst ist nicht erreichbar.",
   },
   patterns: {
     subjectName: 'SUBJEKT {1}',

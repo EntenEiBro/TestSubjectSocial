@@ -12,7 +12,7 @@ import { DEVICE_LABELS } from '../core/input.js';
 import { Player, MAX_PLAYERS, MIN_PLAYERS } from '../game/players.js';
 import { sleep } from '../core/util.js';
 import { COMMENDATIONS, Commendations } from '../game/achievements.js';
-import { makeJoinCode, parseJoinCode, PHONE_PORT } from '../net/joincode.js';
+import { makeJoinCode, parseJoinCode, isInternetCode, PHONE_PORT } from '../net/joincode.js';
 import { RESOLUTIONS } from '../core/engine.js';
 import { Haptics } from '../core/haptics.js';
 import { t, tr, LANGUAGES, getLanguage } from '../i18n/i18n.js';
@@ -88,7 +88,7 @@ export function titleScreen(app) {
       <div class="hint">${pick('Tap an option', '{MOVE} choose · {A} confirm')}</div>
     </div>
     ${app.touch ? `<div class="gear-btn" data-tap="settings" title="${t('SETTINGS')}">⚙</div>` : ''}
-    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.4' })}</div>`;
+    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.5' })}</div>`;
   app.backdrop.mode = 'title';
   // Populate the pedestals with random volunteers for atmosphere.
   for (let i = 0; i < MAX_PLAYERS; i++) app.backdrop.setSlot(i, new Player(i, 'bot').look, i + 1);
@@ -221,27 +221,26 @@ export function onlineScreen(app) {
     if (net.status === 'error') { el.innerHTML = `<p class="small-note">${t('ONLINE UNAVAILABLE')} — ${esc(net.error || '?')}</p><p>${t('Start the game with <b>python serve.py</b> (the relay lives there).')}</p>`; return; }
     if (net.status !== 'hosting') { el.innerHTML = `<p>${t('Opening a room…')}</p>`; return; }
     const port = info ? info.port : location.port;
-    const local = `http://localhost:${port}/?join=${net.code}`;
-    const lan = info && info.lanEnabled ? `http://${info.lan}:${port}/?join=${net.code}` : null;
     const peers = `<div class="online-peers">${t('{n} REMOTE SUBJECT(S) CONNECTED — they join in the lobby with their action button', { n: net.connectedCount })}</div>`;
-    // Phones join with a short code (room + host address) via JOIN ONLINE.
-    const phoneCode = info && info.lanEnabled && Number(port) === PHONE_PORT ? makeJoinCode(net.code, info.lan) : null;
-    if (app.platform === 'android') {
-      el.innerHTML = phoneCode
-        ? `<div>${t('JOIN CODE')}</div><div class="online-code">${phoneCode}</div>
-           <div class="online-urls">${t('Your friend opens the app → <b>JOIN ONLINE</b> → types this code.')}<small>${t("Both phones must be on the same Wi-Fi, or your friend joins this phone's hotspot.")}</small></div>${peers}`
-        : `<p class="small-note">${t('NO WI-FI CONNECTION — connect to Wi-Fi or turn on your hotspot.')}</p>`;
-      return;
+    // Internet (PeerJS Cloud): a 6-letter code that works from anywhere.
+    const internet = net.internetCode
+      ? `<div>${t('INTERNET CODE')}</div><div class="online-code">${net.internetCode}</div>
+         <div class="online-urls">${t('Friends anywhere choose <b>JOIN ONLINE</b> and type this code (PC or phone).')}</div>`
+      : `<p class="small-note">${t('INTERNET PLAY UNAVAILABLE — check your internet connection.')}</p>`;
+    // LAN: room + host address, for devices on the same network (works offline).
+    const lanCode = net.code && info && info.lanEnabled && Number(port) === PHONE_PORT ? makeJoinCode(net.code, info.lan) : null;
+    const lanUrl = net.code && info && info.lanEnabled ? `http://${info.lan}:${port}/?join=${net.code}` : null;
+    let lan;
+    if (lanCode) {
+      lan = `<div class="online-urls"><small>${t('SAME WI-FI / LAN (no internet needed)')}</small><b>${lanCode}</b>`
+        + (app.platform === 'android' ? '' : `<small>${t('or open this address in a browser on your network')}</small>${lanUrl}`)
+        + '</div>';
+    } else if (net.code && lanUrl) {
+      lan = `<div class="online-urls">${lanUrl}<small>${t('friends on your network open this address')}</small></div>`;
+    } else {
+      lan = '';
     }
-    // PC: the join code works for PCs and phones alike (JOIN ONLINE); the LAN
-    // address is a fallback for browsers on other devices.
-    el.innerHTML = phoneCode
-      ? `<div>${t('JOIN CODE')}</div><div class="online-code">${phoneCode}</div>
-         <div class="online-urls">${t('Friends choose <b>JOIN ONLINE</b> and type this code (PC or phone).')}<small>${t('Everyone must be on the same network (Wi-Fi / LAN).')}</small>
-         ${lan}<small>${t('or open this address in a browser on your network')}</small></div>${peers}`
-      : `<div>${t('ROOM CODE')}</div><div class="online-code">${net.code}</div>
-         <div class="online-urls">${lan ? `${lan}<small>${t('friends on your network open this address')}</small>` : `<small>${t('Network play is off — start the game without <b>--local</b> to let others join.')}</small>`}
-         ${local}<small>${t('same machine (another window / browser)')}</small></div>${peers}`;
+    el.innerHTML = internet + lan + peers;
   };
   net.onChange = render;
   const html = `<div class="panel-screen wide"><h1>${t('HOST ONLINE')}</h1><div class="online-body"></div>
@@ -256,9 +255,10 @@ export function onlineScreen(app) {
 }
 
 /**
- * JOIN ONLINE (phone app): type the host's join code and connect. The page
- * then navigates to the host's built-in server, which serves the remote-
- * player client (?join=ROOM). Resolves null when the player backs out.
+ * JOIN ONLINE: type the host's code and connect. A 6-letter internet code
+ * reloads this page as the PeerJS client (?peer=CODE). An 8-letter LAN code
+ * navigates to the host's built-in server, which serves the remote-player
+ * client (?join=ROOM). Resolves null when the player backs out.
  */
 export function joinScreen(app) {
   // Our own LAN address: the phone app asks Android, PCs ask the built-in server.
@@ -267,10 +267,10 @@ export function joinScreen(app) {
   if (app.touch) app.touch.setVisible(false); // free the screen for typing
   const html = `<div class="panel-screen"><h1>${t('JOIN ONLINE')}</h1>
     <p>${t("Type the join code shown on your friend's screen (HOST ONLINE).")}</p>
-    <input class="join-input" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <input class="join-input" maxlength="9" placeholder="K7QPXW" autocomplete="off" autocapitalize="characters" spellcheck="false">
     <div class="join-err"></div>
     <div><span class="join-btn" data-act="join">${t('JOIN')}</span><span class="join-btn secondary" data-act="back">${t('BACK')}</span></div>
-    <div class="hint">${t('Everyone must be on the same network (Wi-Fi / LAN).')}</div></div>`;
+    <div class="hint">${t('Internet code: 6 letters (e.g. K7QPXW) · LAN code: ABCD-EFGH (same Wi-Fi)')}</div></div>`;
   return new Promise((resolve) => {
     let finished = false;
     const finish = (v) => {
@@ -282,13 +282,21 @@ export function joinScreen(app) {
     const tryJoin = () => {
       const input = app.overlay.querySelector('.join-input');
       const err = app.overlay.querySelector('.join-err');
+      const home = encodeURIComponent(location.origin + '/');
+      const internetCode = isInternetCode(input.value);
+      if (internetCode) {
+        Audio.sfx('select');
+        err.textContent = t('Connecting…');
+        location.href = `${location.origin}/?peer=${internetCode}&home=${home}`;
+        return;
+      }
       if (!ownIp) { err.textContent = t('Not connected to Wi-Fi.'); Audio.sfx('wrong'); return; }
       const target = parseJoinCode(input.value, ownIp);
-      if (!target) { err.textContent = t('That code is not valid — it looks like ABCD-EFGH.'); Audio.sfx('wrong'); return; }
+      if (!target) { err.textContent = t('That code is not valid — it looks like K7QPXW or ABCD-EFGH.'); Audio.sfx('wrong'); return; }
       Audio.sfx('select');
       err.textContent = t('Connecting to {host}…', { host: target.host });
       // `home` lets the client return here (Esc on PC; the phone's back button also works).
-      location.href = `http://${target.host}:${PHONE_PORT}/?join=${target.room}&home=${encodeURIComponent(location.origin + '/')}`;
+      location.href = `http://${target.host}:${PHONE_PORT}/?join=${target.room}&home=${home}`;
     };
     app.overlay.className = 'overlay dim';
     app.overlay.innerHTML = html;
@@ -320,7 +328,7 @@ export function creditsScreen(app) {
   const html = `<div class="panel-screen"><h1>${t('CREDITS')}</h1>
     <p class="credits">${t('An original fan-made homage to the "lethal party game" genre.')}<br><br>
     ${t('Design, code, procedural art & synthesized audio: built from scratch for this project.')}<br>
-    ${t('Rendering')}: three.js (MIT).<br>${t('Fonts')}: Black Ops One, VT323 (SIL OFL), Special Elite (Apache 2.0).<br><br>
+    ${t('Rendering')}: three.js (MIT). PeerJS (MIT).<br>${t('Fonts')}: Black Ops One, VT323 (SIL OFL), Special Elite (Apache 2.0).<br><br>
     ${t('No subjects were harmed. Officially.')}</p><div>${tapBtn('back', t('BACK'), 'primary')}</div><div class="hint">${tp('{BACK} back')}</div></div>`;
   return runScreen(app, html, (dt, done) => {
     if (app.input.backPressed() || app.input.joinPressed()) { Audio.sfx('back'); done(); }

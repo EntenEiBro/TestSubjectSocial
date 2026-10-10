@@ -498,6 +498,15 @@ export default {
     "or open this address in a browser on your network": "или откройте этот адрес в браузере в вашей сети",
     "Network play is off — start the game without <b>--local</b> to let others join.": "Сетевая игра выключена — запусти игру без <b>--local</b>, чтобы другие могли войти.",
     "Type the join code shown on your friend's screen (HOST ONLINE).": "Введи код подключения с экрана друга (СОЗДАТЬ ОНЛАЙН).",
+    // Internet play (PeerJS)
+    "INTERNET CODE": "ИНТЕРНЕТ-КОД",
+    "Friends anywhere choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "Друзья где угодно выбирают <b>ВОЙТИ ОНЛАЙН</b> и вводят этот код (ПК или телефон).",
+    "INTERNET PLAY UNAVAILABLE — check your internet connection.": "ИГРА ЧЕРЕЗ ИНТЕРНЕТ НЕДОСТУПНА — проверь подключение к интернету.",
+    "SAME WI-FI / LAN (no internet needed)": "ТА ЖЕ СЕТЬ WI-FI / LAN (интернет не нужен)",
+    "Internet code: 6 letters (e.g. K7QPXW) · LAN code: ABCD-EFGH (same Wi-Fi)": "Интернет-код: 6 символов (напр. K7QPXW) · LAN-код: ABCD-EFGH (та же Wi-Fi)",
+    "Connecting…": "Подключение…",
+    "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "Неверный код — он выглядит как K7QPXW или ABCD-EFGH.",
+    "The online service is not reachable.": "Онлайн-сервис недоступен.",
   },
   patterns: {
     subjectName: 'СУБЪЕКТ {1}',

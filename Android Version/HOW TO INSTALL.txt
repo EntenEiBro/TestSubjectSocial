@@ -52,13 +52,17 @@ commendations are kept.
 
 4. PLAYING ONLINE WITH A FRIEND'S PHONE
 ---------------------------------------
-Both phones need the app installed. No PC or internet needed.
+Both phones need the app installed. No PC needed. Works with PCs too.
 
-  1. Put both phones on the same Wi-Fi - or turn on the hotspot on one phone
-     and connect the other phone to it.
-  2. Phone 1 (host): HOST ONLINE -> a join code like QAYC-7K2P appears.
-  3. Phone 2: JOIN ONLINE -> type the code -> JOIN.
-  4. Phone 2 taps (A) in the lobby to take a seat. Have fun.
+OVER THE INTERNET (friend can be anywhere, mobile data or any Wi-Fi):
+  1. Phone 1 (host): HOST ONLINE -> an INTERNET CODE like K7QPXW appears.
+  2. Phone 2: JOIN ONLINE -> type the 6 letters -> JOIN.
+  3. Phone 2 taps (A) in the lobby to take a seat. Have fun.
+
+ON THE SAME WI-FI (no internet needed):
+  Put both phones on the same Wi-Fi - or turn on the hotspot on one phone and
+  connect the other phone to it - and use the LAN code like QAYC-7K2P shown
+  below the internet code instead.
 
   The friend's Back button returns them to their own game.
 
@@ -69,6 +73,8 @@ TROUBLESHOOTING
   - No "Install" button / blocked: make sure "Allow from this source" is on
     for the app you used to open the APK (Settings -> Apps -> Special app
     access -> Install unknown apps).
-  - JOIN ONLINE says the code is not valid or can't connect: check that both
-    phones are on the same Wi-Fi (or hotspot) and type the code exactly as
-    shown on the host phone.
+  - JOIN ONLINE says the code is not valid or can't connect: type the code
+    exactly as shown on the host phone. "Room does not exist" means the host
+    left HOST ONLINE or closed the app. If the internet code connects but no
+    picture appears, your network may block direct connections - try the LAN
+    code on the same Wi-Fi (or hotspot).

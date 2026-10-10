@@ -498,6 +498,15 @@ export default {
     "or open this address in a browser on your network": "或在同一网络的浏览器中打开此地址",
     "Network play is off — start the game without <b>--local</b> to let others join.": "网络游戏已关闭——不带 <b>--local</b> 启动游戏即可让他人加入。",
     "Type the join code shown on your friend's screen (HOST ONLINE).": "输入好友屏幕上显示的加入代码（创建在线房间）。",
+    // Internet play (PeerJS)
+    "INTERNET CODE": "互联网代码",
+    "Friends anywhere choose <b>JOIN ONLINE</b> and type this code (PC or phone).": "任何地方的好友选择<b>加入在线</b>并输入此代码（电脑或手机）。",
+    "INTERNET PLAY UNAVAILABLE — check your internet connection.": "互联网游戏不可用——请检查网络连接。",
+    "SAME WI-FI / LAN (no internet needed)": "同一 Wi-Fi / 局域网（无需互联网）",
+    "Internet code: 6 letters (e.g. K7QPXW) · LAN code: ABCD-EFGH (same Wi-Fi)": "互联网代码：6 个字符（如 K7QPXW）· 局域网代码：ABCD-EFGH（同一 Wi-Fi）",
+    "Connecting…": "正在连接…",
+    "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "代码无效——格式应为 K7QPXW 或 ABCD-EFGH。",
+    "The online service is not reachable.": "无法连接在线服务。",
   },
   patterns: {
     subjectName: '受试者 {1}',
