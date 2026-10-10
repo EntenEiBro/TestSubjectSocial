@@ -51,8 +51,15 @@ def main():
         for name in sorted(files):
             if name.endswith(".js"):
                 with open(os.path.join(folder, name), encoding="utf-8-sig") as f:
-                    for s in literals(r"\bt\(\s*" + STR, f.read()):
-                        add(s)
+                    text = f.read()
+                # t('...') and tp('...') (translate + button prompts)
+                for s in literals(r"\btp?\(\s*" + STR, text):
+                    add(s)
+                # pick('touch wording', 'button wording') — both arguments
+                for m in re.finditer(r"\bpick\(\s*" + STR + r"\s*,\s*" + STR, text):
+                    for g in (m.group(1), m.group(2), m.group(3), m.group(4)):
+                        if g is not None:
+                            add(g.replace("\\'", "'").replace('\\"', '"'))
 
     # 2) minigame meta
     for name in sorted(os.listdir(os.path.join(SRC, "minigames"))):

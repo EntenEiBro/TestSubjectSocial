@@ -456,6 +456,45 @@ export class SonarCrossing extends Minigame {
 
   // ---------------------------------------------------------------------- bots
 
+  /**
+   * True if walking from `pos` along the unit direction (dx, dz) for ~1.6 units
+   * stays clear of every known live mine (and inside the fences).
+   */
+  _pathClear(pos, dx, dz, known, reach = 1.6, margin = 0.85) {
+    for (let t = 0.35; t <= reach; t += 0.35) {
+      const px = pos.x + dx * t, pz = pos.z + dz * t;
+      if (Math.abs(px) > HW - 0.4) return false;
+      for (const m of known) {
+        if (m.alive && Math.hypot(m.x - px, m.z - pz) < margin) return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Choose the safest of 16 headings around the bot. Clear paths that move
+   * toward the exit (−Z) score best, sideways next, backwards last — but a
+   * backwards path still beats walking onto a mine. `maxBack` limits how far
+   * backwards is acceptable (the harvester may be right behind us).
+   * Returns {x, z} or null when every direction is blocked.
+   */
+  _bestEscape(pos, known, maxBack = Infinity) {
+    let best = null, bestScore = -Infinity;
+    for (let i = 0; i < 16; i++) {
+      const ang = (i / 16) * Math.PI * 2;
+      const dx = Math.sin(ang), dz = -Math.cos(ang); // i = 0 points at the exit
+      if (dz > 0 && maxBack < 2.5) continue;        // no room to back up: harvester
+      if (!this._pathClear(pos, dx, dz, known)) continue;
+      // Clearance: distance from the probe end to the nearest known mine.
+      const ex = pos.x + dx * 1.6, ez = pos.z + dz * 1.6;
+      let clear = 4;
+      for (const m of known) if (m.alive) clear = Math.min(clear, Math.hypot(m.x - ex, m.z - ez));
+      const score = -dz * 2 + clear * 0.6 + Math.random() * 0.2;
+      if (score > bestScore) { bestScore = score; best = { x: dx, z: dz }; }
+    }
+    return best;
+  }
+
   botThink(seat, dt) {
     const a = seat.actor, brain = seat.brain, mem = brain.memory;
     if (seat.finished) return;
@@ -506,8 +545,31 @@ export class SonarCrossing extends Minigame {
     if (a.pos.x > HW - 1.2) mx -= 1.2;
     if (a.pos.x < -HW + 1.2) mx += 1.2;
     const care = panic ? 1 : lerp(0.75, 0.9, brain.difficulty);
-    const len = Math.hypot(mx, mz) || 1;
-    a.ctrl.setMove((mx / len) * care, (mz / len) * care);
+
+    // Dead ends: if the way we want to go runs into a known mine (e.g. mines
+    // left, right AND ahead, where the pushes above cancel out), pick the
+    // safest direction all around — backwards included — and back out for a
+    // moment before trying a new lane.
+    if (mem.backT > 0) {
+      mem.backT -= dt;
+      if (this._pathClear(a.pos, mem.backX, mem.backZ, mem.known)) { a.ctrl.setMove(mem.backX * care, mem.backZ * care); return; }
+      mem.backT = 0; // the escape route itself is blocked now: re-plan below
+    }
+    let len = Math.hypot(mx, mz) || 1;
+    let dirX = mx / len, dirZ = mz / len;
+    if (!this._pathClear(a.pos, dirX, dirZ, mem.known)) {
+      const escape = this._bestEscape(a.pos, mem.known, panic ? gap : Infinity);
+      if (escape) {
+        dirX = escape.x; dirZ = escape.z;
+        if (escape.z > 0.2) {                   // going backwards: commit for a moment
+          mem.backX = dirX; mem.backZ = dirZ;
+          mem.backT = rand(0.7, 1.2);
+          mem.laneX = rand(-HW + 1.5, HW - 1.5); mem.laneT = rand(2.5, 5); // then try another lane
+        }
+      }
+    }
+    len = Math.hypot(dirX, dirZ) || 1;
+    a.ctrl.setMove((dirX / len) * care, (dirZ / len) * care);
 
     // Opportunistic shove: a rival standing next to a known mine.
     if (Math.random() < 0.04 * brain.difficulty) {

@@ -65,7 +65,7 @@ export class PistonPress extends Minigame {
     controls: [{ input: 'move', label: 'Move' }, { input: 'a', label: 'Grab / Throw junk' }],
     objective: 'Never hold the most junk when the pistons slam.',
     rules: [
-      'Junk rains onto the platforms. Grab it (A) and throw it at rivals (A).',
+      'Junk rains onto the platforms. Grab it ({A}) and throw it at rivals ({A}).',
       'Every 10 s the pistons slam: the biggest junk pile gets pressed flat.',
       'Junk in your hands counts toward your pile.',
       'A direct hit knocks a subject back — maybe into the pit.',

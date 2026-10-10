@@ -29,6 +29,9 @@ body { font-family: 'Special Elite', 'Courier New', monospace; color: var(--bone
 }
 #view, #remote-view { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; display: block; object-fit: fill; background: #050505; }
 
+/* Key caps for platform-specific button prompts (prompts.js) */
+kbd { display: inline-block; font-family: 'VT323', monospace; font-size: 1.05em; line-height: 1.05; padding: 0 0.35em; margin: 0 0.1em; color: var(--bone); background: rgba(216, 210, 192, 0.12); border: 1px solid rgba(216, 210, 192, 0.45); border-bottom-width: 2px; border-radius: 3px; white-space: nowrap; vertical-align: baseline; }
+
 /* Settings gear on the title screen (top right) */
 .gear-btn { position: absolute; top: calc(var(--u) * 3); right: calc(var(--u) * 3); width: calc(var(--u) * 9); height: calc(var(--u) * 9); display: flex; align-items: center; justify-content: center; font-size: calc(var(--u) * 6); line-height: 1; color: var(--bone); background: rgba(10, 9, 8, 0.7); border: calc(var(--u) * 0.35) solid #4a463c; border-radius: 50%; pointer-events: auto; cursor: pointer; transition: transform .2s, color .2s; font-family: 'Segoe UI Symbol', 'Noto Sans Symbols', sans-serif; }
 .gear-btn:hover, .gear-btn:active { color: var(--hazard); transform: rotate(60deg); }

@@ -46,7 +46,7 @@ export class HotSpider extends Minigame {
     controls: [{ input: 'move', label: 'Move' }, { input: 'a', label: 'Throw spider' }, { input: 'b', label: 'Shove' }],
     objective: 'Do not be wearing the spider when its fuse runs out.',
     rules: [
-      'The spider clings to your back. Press A to throw it at someone.',
+      'The spider clings to your back. Press {A} to throw it at someone.',
       'Missed throws land — the spider then hunts the nearest subject.',
       'The red eye blinks faster as the hidden fuse burns down.',
       'Whoever wears it at zero gets folded in half.',

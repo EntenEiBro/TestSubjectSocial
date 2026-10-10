@@ -13,6 +13,7 @@
  */
 import { formatTime } from '../core/util.js';
 import { t, tr } from '../i18n/i18n.js'; // every HUD message is translated with tr()
+import { fmt } from './prompts.js';
 
 export class Hud {
   constructor(root) {
@@ -105,7 +106,7 @@ export class Hud {
     const p = this.el.prompt;
     if (!text) { p.classList.add('hidden'); return; }
     p.classList.remove('hidden');
-    text = tr(text);
+    text = fmt(tr(text)); // translate, then show the player's own buttons ({A} → F / ENTER, Ⓐ, ...)
     if (p.innerHTML !== text) p.innerHTML = text;
   }
 

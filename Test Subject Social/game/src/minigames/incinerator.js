@@ -48,7 +48,7 @@ export class Incinerator extends Minigame {
     controls: [{ input: 'a', label: 'Grab & burn' }],
     objective: 'Burn the art, spare the machinery, and do not finish last.',
     rules: [
-      'Press A while an item is in your glowing zone to hurl it into the furnace.',
+      'Press {A} while an item is in your glowing zone to hurl it into the furnace.',
       'Art burned: +1. Machine part burned: −1. Art that slips past: −1.',
       'The belt speeds up. Every lane gets the same items.',
       'Lowest score at the whistle is fed to the furnace.',

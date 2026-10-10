@@ -254,7 +254,7 @@ export class OpenSeason extends Minigame {
     const h = this.sub.hunter;
     this.hud.banner(`${h.player.name} HAS THE RIFLE`, 2000, 'danger');
     this.hud.feed(`ROUND ${this.sub.index + 1}/${this.seats.length} — HUNTER: ${h.player.name}`, h.player.color);
-    const human = !h.isBot ? 'Hunter: stick aims, A fires' : 'Runners: reach the green exit, B dives';
+    const human = !h.isBot ? 'Hunter: {MOVE} aims, {A} fires' : 'Runners: reach the green exit, {B} dives';
     this.hud.prompt(human);
     Audio.sfx('reload');
   }

@@ -79,8 +79,8 @@ export class ForkliftFrenzy extends Minigame {
     objective: 'Have the most crates in your zone when the shift ends — and never the fewest.',
     rules: [
       'Point the stick where you want to go; the forklift turns and accelerates.',
-      'A lifts a crate in front of the forks, A again sets it down.',
-      'Crates in your coloured zone score. Stealing is encouraged. B honks and bumps.',
+      '{A} lifts a crate in front of the forks, {A} again sets it down.',
+      'Crates in your coloured zone score. Stealing is encouraged. {B} honks and bumps.',
       'After 45 s the lowest scorer is crushed. Ties for last are crushed together.',
     ],
   };
@@ -352,7 +352,7 @@ export class ForkliftFrenzy extends Minigame {
 
   start() {
     Audio.sfx('engine');
-    this.hud.prompt('Stick = drive · A = forks · B = horn');
+    this.hud.prompt('{MOVE} drive · {A} forks · {B} horn');
     setTimeout(() => { if (this.state === 'play') this.hud.prompt(null); }, 5000);
   }
 

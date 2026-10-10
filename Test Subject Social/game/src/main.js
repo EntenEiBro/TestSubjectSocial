@@ -31,6 +31,7 @@ import { NetHost } from './net/host.js';
 import { runClient } from './net/client.js';
 import { TouchControls, isTouchDevice } from './ui/touch.js';
 import { Haptics } from './core/haptics.js';
+import { initInputMode } from './ui/prompts.js';
 import { t, setLanguage, LANGUAGES } from './i18n/i18n.js';
 
 const SETTINGS_KEY = 'tss.settings.v1';
@@ -78,6 +79,8 @@ class App {
     });
     // On-screen controls on phones and tablets.
     this.touch = isTouchDevice() ? new TouchControls(this.input) : null;
+    // Button prompts follow the device in use: keyboard keys, gamepad buttons or touch.
+    initInputMode(!!this.touch);
     // Larger tap targets in menus on touch screens (see .touch-ui in style.css).
     if (this.touch) document.getElementById('stage').classList.add('touch-ui');
     // Leaving the app (home button, app switcher, minimised window): silence

@@ -16,6 +16,7 @@ import { makeJoinCode, parseJoinCode, PHONE_PORT } from '../net/joincode.js';
 import { RESOLUTIONS } from '../core/engine.js';
 import { Haptics } from '../core/haptics.js';
 import { t, tr, LANGUAGES, getLanguage } from '../i18n/i18n.js';
+import { tp, pick, keyLabel, fmt } from './prompts.js'; // platform-specific button prompts
 
 /**
  * Render HTML into the overlay and run `handler(dt, done)` each frame until done(value).
@@ -65,10 +66,12 @@ const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt
 // ===================================================================== TITLE
 
 export function titleScreen(app) {
+  // Settings entry point depends on the device: phones/tablets get the ⚙ gear
+  // in the top-right corner, PCs get a SETTINGS item in the menu.
   const items = [
     { id: 'play', label: t('BEGIN TESTING') },
     { id: 'online', label: t('HOST ONLINE') },
-    { id: 'options', label: t('SETTINGS') },
+    ...(app.touch ? [] : [{ id: 'options', label: t('SETTINGS') }]),
     { id: 'manual', label: t('FIELD MANUAL') },
     { id: 'commendations', label: t('COMMENDATIONS') },
     { id: 'credits', label: t('CREDITS') },
@@ -82,10 +85,10 @@ export function titleScreen(app) {
       <div class="logo"><span class="l1">TEST SUBJECT</span><span class="l2">SOCIAL</span></div>
       <div class="logo-sub">${t('a collection of lethal party games for 2–4 subjects')}</div>
       <ul class="menu">${items.map((it, i) => `<li data-tap="${i}">${it.label}</li>`).join('')}</ul>
-      <div class="hint">${app.touch ? t('Tap an option') : t('W/S or ↑/↓ to choose · F / ENTER / Ⓐ to confirm · or click')}</div>
+      <div class="hint">${pick('Tap an option', '{MOVE} choose · {A} confirm')}</div>
     </div>
-    <div class="gear-btn" data-tap="settings" title="${t('SETTINGS')}">⚙</div>
-    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.2' })}</div>`;
+    ${app.touch ? `<div class="gear-btn" data-tap="settings" title="${t('SETTINGS')}">⚙</div>` : ''}
+    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.3' })}</div>`;
   app.backdrop.mode = 'title';
   // Populate the pedestals with random volunteers for atmosphere.
   for (let i = 0; i < MAX_PLAYERS; i++) app.backdrop.setSlot(i, new Player(i, 'bot').look, i + 1);
@@ -158,7 +161,7 @@ export function optionsScreen(app) {
     const h1 = app.overlay.querySelector('.panel-screen h1');
     if (h1) h1.textContent = t('SETTINGS');
     const hint = app.overlay.querySelector('.panel-screen .hint');
-    if (hint) hint.textContent = app.touch ? t('Tap ◂ ▸ to adjust') : t('←/→ adjust · Ⓑ / G / ESC back · or click ◂ ▸');
+    if (hint) hint.innerHTML = pick('Tap ◂ ▸ to adjust', '{MOVE} adjust · {BACK} back');
   };
   const html = `<div class="panel-screen"><h1></h1><ul class="opt-list"></ul><div class="hint"></div></div>`;
   setTimeout(render, 0);
@@ -197,7 +200,7 @@ export function manualScreen(app, registry) {
         <p>${t('Empty seats are filled by facility units (bots). Read the second briefing page — it tells you how to win.')}</p>
       </div>
       <div><h3>${t('SIMULATIONS')}</h3><ol class="sim-list">${registry.map((G) => `<li><b>${t(G.meta.title)}</b> — ${esc(t(G.meta.tagline))}</li>`).join('')}</ol></div>
-    </div><div>${tapBtn('back', t('BACK'), 'primary')}</div><div class="hint">${t('Ⓑ / G / ESC back')}</div></div>`;
+    </div><div>${tapBtn('back', t('BACK'), 'primary')}</div><div class="hint">${tp('{BACK} back')}</div></div>`;
   return runScreen(app, html, (dt, done) => {
     if (app.input.backPressed() || app.input.joinPressed()) { Audio.sfx('back'); done(); }
   }, { onTap: (action, el, done) => { Audio.sfx('back'); done(); } });
@@ -220,7 +223,7 @@ export function onlineScreen(app) {
     const port = info ? info.port : location.port;
     const local = `http://localhost:${port}/?join=${net.code}`;
     const lan = info && info.lanEnabled ? `http://${info.lan}:${port}/?join=${net.code}` : null;
-    const peers = `<div class="online-peers">${t('{n} REMOTE SUBJECT(S) CONNECTED — they join in the lobby with their Ⓐ button', { n: net.connectedCount })}</div>`;
+    const peers = `<div class="online-peers">${t('{n} REMOTE SUBJECT(S) CONNECTED — they join in the lobby with their action button', { n: net.connectedCount })}</div>`;
     // Phones join with a short code (room + host address) via JOIN ONLINE.
     const phoneCode = info && info.lanEnabled && Number(port) === PHONE_PORT ? makeJoinCode(net.code, info.lan) : null;
     if (app.platform === 'android') {
@@ -238,7 +241,7 @@ export function onlineScreen(app) {
   net.onChange = render;
   const html = `<div class="panel-screen wide"><h1>${t('HOST ONLINE')}</h1><div class="online-body"></div>
     <div>${tapBtn('play', t('CONTINUE TO INTAKE'), 'primary')}${tapBtn('back', t('BACK'))}</div>
-    <div class="hint">${t('Ⓐ continue to intake · Ⓑ back (room stays open)')}</div></div>`;
+    <div class="hint">${tp('{A} continue to intake · {BACK} back (room stays open)')}</div></div>`;
   setTimeout(render, 0);
   const finish = (done, v) => { Audio.sfx(v ? 'select' : 'back'); net.onChange = null; done(v); };
   return runScreen(app, html, (dt, done) => {
@@ -299,7 +302,7 @@ export function commendationsScreen(app, registry) {
     const prog = d.goal && !on ? ` <i>${Math.min(d.goal, Commendations.count(key))}/${d.goal}</i>` : '';
     return `<li class="${on ? 'on' : ''}"><span class="medal">${on ? '★' : '☆'}</span><div><b>${t(d.title)}</b>${prog}<small>${esc(t(d.desc))} · ${titleOf(d.game)}</small></div></li>`;
   }).join('');
-  const html = `<div class="panel-screen wide"><h1>${t('COMMENDATIONS')}</h1><h3 class="sub">${t('{a} / {b} EARNED', { a: unlocked, b: total })}</h3><ul class="comm-list">${rows}</ul><div>${tapBtn('back', t('BACK'), 'primary')}</div><div class="hint">${t('Ⓑ / G / ESC back')}</div></div>`;
+  const html = `<div class="panel-screen wide"><h1>${t('COMMENDATIONS')}</h1><h3 class="sub">${t('{a} / {b} EARNED', { a: unlocked, b: total })}</h3><ul class="comm-list">${rows}</ul><div>${tapBtn('back', t('BACK'), 'primary')}</div><div class="hint">${tp('{BACK} back')}</div></div>`;
   return runScreen(app, html, (dt, done) => {
     if (app.input.backPressed() || app.input.joinPressed()) { Audio.sfx('back'); done(); }
   }, { onTap: (action, el, done) => { Audio.sfx('back'); done(); } });
@@ -310,7 +313,7 @@ export function creditsScreen(app) {
     <p class="credits">${t('An original fan-made homage to the "lethal party game" genre.')}<br><br>
     ${t('Design, code, procedural art & synthesized audio: built from scratch for this project.')}<br>
     ${t('Rendering')}: three.js (MIT).<br>${t('Fonts')}: Black Ops One, VT323 (SIL OFL), Special Elite (Apache 2.0).<br><br>
-    ${t('No subjects were harmed. Officially.')}</p><div>${tapBtn('back', t('BACK'), 'primary')}</div><div class="hint">${t('Ⓑ / G / ESC back')}</div></div>`;
+    ${t('No subjects were harmed. Officially.')}</p><div>${tapBtn('back', t('BACK'), 'primary')}</div><div class="hint">${tp('{BACK} back')}</div></div>`;
   return runScreen(app, html, (dt, done) => {
     if (app.input.backPressed() || app.input.joinPressed()) { Audio.sfx('back'); done(); }
   }, { onTap: (action, el, done) => { Audio.sfx('back'); done(); } });
@@ -351,7 +354,7 @@ export function lobbyScreen(app) {
       if (!p) {
         const tapJoin = canTapJoin();
         cards.push(`<div class="slot empty"${tapJoin ? ` data-tap="join:${i}"` : ''}><div class="slot-head">${t('SEAT {n}', { n: i + 1 })}</div>
-          <div class="slot-empty">${tapJoin ? t('TAP HERE<br>TO VOLUNTEER') : t('PRESS Ⓐ / F / ENTER<br>TO VOLUNTEER')}</div></div>`);
+          <div class="slot-empty">${tapJoin ? t('TAP HERE<br>TO VOLUNTEER') : tp('PRESS {A}<br>TO VOLUNTEER')}</div></div>`);
         continue;
       }
       const ci = cursor.get(p) ?? 0;
@@ -361,7 +364,7 @@ export function lobbyScreen(app) {
         : t(DEVICE_LABELS[p.device].name);
       const rows = p.isBot ? `<div class="slot-bot">${t('FACILITY UNIT')}<br><small>${t('auto-assigned')}</small></div>` : FIELDS.map((f, fi) => {
         if (f === 'ready') {
-          return `<div class="slot-row ${fi === ci ? 'sel' : ''} ${p.ready ? 'ok' : ''}" data-tap="ready:${i}"><span>${t(FIELD_LABEL[f])}</span><b>${p.ready ? `✔ ${t('READY')}` : t('TAP / Ⓐ')}</b></div>`;
+          return `<div class="slot-row ${fi === ci ? 'sel' : ''} ${p.ready ? 'ok' : ''}" data-tap="ready:${i}"><span>${t(FIELD_LABEL[f])}</span><b>${p.ready ? `✔ ${t('READY')}` : (p.device === 'touch' ? t('TAP') : keyLabel('A'))}</b></div>`;
         }
         const val = esc(p.lookLabel(f));
         return `<div class="slot-row ${fi === ci ? 'sel' : ''}"><span>${t(FIELD_LABEL[f])}</span><b><span class="tap-arrow" data-tap="dec:${i}:${f}">◂</span> ${val} <span class="tap-arrow" data-tap="inc:${i}:${f}">▸</span></b></div>`;
@@ -370,19 +373,19 @@ export function lobbyScreen(app) {
     }
     const humans = roster.filter((p) => !p.isBot);
     let status = '';
-    if (roster.length < MIN_PLAYERS) status = app.touch ? t('NEED AT LEAST {n} SUBJECTS — TAP +BOT TO ADD A BOT', { n: MIN_PLAYERS }) : t('NEED AT LEAST {n} SUBJECTS — PRESS T / Ⓨ TO ADD A BOT', { n: MIN_PLAYERS });
+    if (roster.length < MIN_PLAYERS) status = pick('NEED AT LEAST {n} SUBJECTS — TAP +BOT TO ADD A BOT', 'NEED AT LEAST {n} SUBJECTS — PRESS {ADDBOT} TO ADD A BOT', { n: MIN_PLAYERS });
     else if (humans.some((p) => !p.ready)) status = t('WAITING FOR ALL SUBJECTS TO CONFIRM READY');
     else if (countdown !== null) status = t('PROCEEDING IN {n}', { n: Math.ceil(countdown) });
     const slotsEl = app.overlay.querySelector('.slots');
     if (!slotsEl) return; // overlay was replaced (screen no longer visible)
     slotsEl.innerHTML = cards.join('');
-    app.overlay.querySelector('.lobby-status').textContent = status;
+    app.overlay.querySelector('.lobby-status').innerHTML = status; // may contain key caps
   };
 
   const html = `<div class="lobby"><h1 class="lobby-title">${t('SUBJECT INTAKE')}</h1><div class="slots"></div>
     <div class="lobby-status"></div>
     <div class="lobby-actions">${tapBtn('addbot', t('+ BOT'))}${tapBtn('rembot', t('− BOT'))}${tapBtn('back', t('BACK'))}</div>
-    <div class="hint">${t('JOIN Ⓐ/F/ENTER · CUSTOMIZE ↑↓←→ · LEAVE Ⓑ/G/R-SHIFT · ADD BOT T/Ⓨ · REMOVE BOT Y/Ⓧ · BACK ESC · or tap / click')}</div></div>`;
+    <div class="hint">${tp('JOIN {A} · CUSTOMIZE {MOVE} · LEAVE {B} · ADD BOT {ADDBOT} · REMOVE BOT {REMBOT} · BACK {BACK}')}</div></div>`;
   setTimeout(() => { refreshBackdrop(); render(); }, 0);
 
   const addBot = () => { const slot = freeSlot(); if (slot >= 0) { roster.push(new Player(slot, 'bot')); Audio.sfx('join'); } else Audio.sfx('wrong'); };
@@ -470,7 +473,7 @@ export function modeScreen(app) {
   const state = { index: 0 };
   const paint = () => app.overlay.querySelectorAll('.mode-card').forEach((el, i) => el.classList.toggle('sel', i === state.index));
   const html = `<div class="panel-screen wide"><h1>${t('SELECT PROGRAM')}</h1><div class="mode-cards">${items.map((it, i) => `<div class="mode-card" data-tap="${i}"><h2>${it.label}</h2><p>${it.desc}</p></div>`).join('')}</div>
-    <div>${tapBtn('back', t('BACK'))}</div><div class="hint">${t('←/→ choose · Ⓐ confirm · Ⓑ back · or tap a program')}</div></div>`;
+    <div>${tapBtn('back', t('BACK'))}</div><div class="hint">${tp('{MOVE} choose · {A} confirm · {BACK} back')}</div></div>`;
   setTimeout(paint, 0);
   return runScreen(app, html, (dt, done) => {
     const d = app.input.menuDir();
@@ -498,7 +501,7 @@ export function customScreen(app, registry) {
     gridEl.innerHTML = registry.map((G, i) => `<div class="pl-card ${sel.has(G.meta.id) ? 'on' : ''} ${state.index === i ? 'sel' : ''}" data-tap="${i}"><span class="num">${String(i + 1).padStart(2, '0')}</span><b>${t(G.meta.title)}</b><small>${t(G.meta.category)}</small></div>`).join('');
     app.overlay.querySelector('.pl-actions').innerHTML = `<div class="pl-btn ${state.index === registry.length ? 'sel' : ''}" data-tap="${registry.length}">${t('SHUFFLE')}: ${shuffle ? t('ON') : t('OFF')}</div><div class="pl-btn ${state.index === registry.length + 1 ? 'sel' : ''} ${sel.size ? '' : 'disabled'}" data-tap="${registry.length + 1}">${t('START')} (${sel.size})</div><div class="pl-btn" data-tap="back">${t('BACK')}</div>`;
   };
-  const html = `<div class="panel-screen wide"><h1>${t('CUSTOM PLAYLIST')}</h1><div class="pl-grid"></div><div class="pl-actions"></div><div class="hint">${t('arrows move · Ⓐ toggle · Ⓑ back · or tap')}</div></div>`;
+  const html = `<div class="panel-screen wide"><h1>${t('CUSTOM PLAYLIST')}</h1><div class="pl-grid"></div><div class="pl-actions"></div><div class="hint">${tp('{MOVE} move · {A} toggle · {BACK} back')}</div></div>`;
   setTimeout(render, 0);
   /** Activate grid entry / shuffle / start at index i. Returns the result when starting. */
   const activate = (i) => {
@@ -542,7 +545,7 @@ export function customScreen(app, registry) {
 export async function monologue(app, lines, { title = 'ORIENTATION' } = {}) {
   lines = lines.map((l) => t(l));
   const html = `<div class="mono"><div class="mono-title">${t(title)}</div><div class="mono-text"></div>
-    <div>${tapBtn('skip', t('SKIP'))}</div><div class="hint">${t('Ⓐ / tap continue · Ⓑ skip')}</div></div>`;
+    <div>${tapBtn('skip', t('SKIP'))}</div><div class="hint">${pick('Tap to continue', '{A} continue · {BACK} skip')}</div></div>`;
   let lineIdx = 0, chars = 0, acc = 0, hold = 0, tapped = false, skip = false;
   const unattended = app.players.length > 0 && app.players.every((p) => p.isBot);
   return runScreen(app, html, (dt, done) => {
@@ -586,20 +589,22 @@ export function briefing(app, G, seats) {
   let page = 0;
   const ready = new Set(seats.filter((s) => s.isBot).map((s) => s.player.id));
   const humans = seats.filter((s) => !s.isBot);
+  // Controls table: first column names the button, last column shows the
+  // key caps for the device the player is using right now.
   const ctlIcon = { move: t('MOVE'), a: 'Ⓐ', b: 'Ⓑ' };
-  const ctlKeys = { move: t('WASD · ARROWS · STICK'), a: 'F · ENTER · Ⓐ', b: 'G · R-SHIFT · Ⓑ' };
+  const ctlKeys = { move: keyLabel('MOVE'), a: keyLabel('A'), b: keyLabel('B') };
   const render = () => {
     const m = G.meta;
     const body = page === 0
       ? `<h2>${t('CONTROLS')}</h2><table class="brief-ctl">${m.controls.map((c) => `<tr><td class="key">${ctlIcon[c.input] || c.input}</td><td>${esc(t(c.label))}</td><td class="keys">${ctlKeys[c.input] || ''}</td></tr>`).join('')}</table>`
-      : `<h2>${t('OBJECTIVE')}</h2><p class="objective">${esc(t(m.objective))}</p>${(m.rules || []).length ? `<ul class="rules">${m.rules.map((r) => `<li>${esc(t(r))}</li>`).join('')}</ul>` : ''}`;
+      : `<h2>${t('OBJECTIVE')}</h2><p class="objective">${fmt(esc(t(m.objective)))}</p>${(m.rules || []).length ? `<ul class="rules">${m.rules.map((r) => `<li>${fmt(esc(t(r)))}</li>`).join('')}</ul>` : ''}`;
     const chips = seats.map((s) => `<span class="chip ${ready.has(s.player.id) ? 'ok' : ''}" style="--pc:${s.player.color}">${s.player.name}${ready.has(s.player.id) ? ' ✔' : ''}</span>`).join('');
     const buttons = page === 0
       ? tapBtn('next', t('NEXT PAGE'), 'primary')
       : `${tapBtn('back', t('PREVIOUS'))}${tapBtn('ready', t("I'M READY"), 'primary')}`;
     app.overlay.innerHTML = `<div class="brief"><div class="brief-head"><span>${t(m.category).toUpperCase()}</span><h1>${t(m.title)}</h1><span class="page">${t('PAGE {a}/{b}', { a: page + 1, b: 2 })}</span></div><div class="brief-body">${body}</div>
       <div class="brief-foot">${page === 0 ? '' : `<div class="chips">${chips}</div>`}<div>${buttons}</div>
-      <div class="hint">${page === 0 ? t('Ⓐ NEXT PAGE') : t('EVERY SUBJECT PRESS Ⓐ WHEN READY · Ⓑ PREVIOUS PAGE')}</div></div></div>`;
+      <div class="hint">${page === 0 ? tp('{A} NEXT PAGE') : tp('EVERY SUBJECT PRESS {A} WHEN READY · {B} PREVIOUS PAGE')}</div></div></div>`;
   };
   app.overlay.className = 'overlay dim';
   render();
@@ -652,7 +657,7 @@ export async function countdown(app) {
 /** Round results: placement list + points earned. Auto-advances. */
 export function roundResults(app, G, results) {
   const rows = results.map((r) => `<tr style="--pc:${r.player.color}" class="${r.died ? 'died' : ''}"><td class="place">${ordinal(r.place)}</td><td class="nm">${r.player.name}</td><td class="st">${r.died ? `✖ ${t('TERMINATED')}` : t('SURVIVED')}</td><td class="pts">+${r.points}</td></tr>`).join('');
-  const html = `<div class="panel-screen"><h1>${t(G.meta.title)}</h1><h3 class="sub">${t('SIMULATION REPORT')}</h3><table class="res-table">${rows}</table><div class="hint">${t('Ⓐ / tap to continue')}</div></div>`;
+  const html = `<div class="panel-screen"><h1>${t(G.meta.title)}</h1><h3 class="sub">${t('SIMULATION REPORT')}</h3><table class="res-table">${rows}</table><div class="hint">${pick('Tap to continue', '{A} continue')}</div></div>`;
   let elapsed = 0;
   return runScreen(app, html, (dt, done) => {
     elapsed += dt;
@@ -666,7 +671,7 @@ export function standings(app, players, { title = 'STANDINGS', roundIndex = null
   const sorted = players.slice().sort((a, b) => b.score - a.score);
   const rows = sorted.map((p, i) => `<div class="stand-row" style="--pc:${p.color}"><span class="rank">${i + 1}</span><span class="nm">${p.name}</span><div class="bar"><div class="fill" style="width:0%" data-w="${(p.score / max) * 100}"></div></div><span class="sc">${p.score}</span></div>`).join('');
   const prog = roundIndex !== null ? `<div class="prog">${t('{a} OF {b} SIMULATIONS COMPLETE', { a: roundIndex + 1, b: total })}</div>` : '';
-  const html = `<div class="panel-screen"><h1>${t(title)}</h1>${prog}<div class="stand">${rows}</div><div class="hint">${t('Ⓐ / tap to continue')}</div></div>`;
+  const html = `<div class="panel-screen"><h1>${t(title)}</h1>${prog}<div class="stand">${rows}</div><div class="hint">${pick('Tap to continue', '{A} continue')}</div></div>`;
   let elapsed = 0;
   setTimeout(() => app.overlay.querySelectorAll('.fill').forEach((f) => { f.style.width = `${f.dataset.w}%`; }), 50);
   return runScreen(app, html, (dt, done) => {
@@ -685,7 +690,7 @@ export function finalScreen(app, players, { ceremony = true } = {}) {
     ? t('{names} — TIE. THE FACILITY WILL DECIDE LATER.', { names: winners.map((w) => w.name).join(' & ') })
     : t('{name} HAS PROVEN THEIR WORTH.', { name: winners[0].name });
   const html = `<div class="panel-screen"><h1>${ceremony ? t('FINAL JUDGEMENT') : t('SHIFT COMPLETE')}</h1><h2 class="verdict" style="color:${winners[0].color}">${verdict}</h2><table class="res-table">${rows}</table>
-    ${ceremony ? `<p class="small-note">${t('All other subjects will be recycled.')}</p>` : ''}<div>${tapBtn('done', t('RETURN TO TERMINAL'), 'primary')}</div><div class="hint">${t('Ⓐ return to terminal')}</div></div>`;
+    ${ceremony ? `<p class="small-note">${t('All other subjects will be recycled.')}</p>` : ''}<div>${tapBtn('done', t('RETURN TO TERMINAL'), 'primary')}</div><div class="hint">${tp('{A} return to terminal')}</div></div>`;
   Audio.sfx('win');
   // Stage the verdict on the intake pedestals: winners celebrate, the rest cower.
   app.backdrop.mode = 'title';

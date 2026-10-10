@@ -48,7 +48,7 @@ export class ChiselTest extends Minigame {
     objective: 'Carve the pattern on the monitor correctly, every time.',
     rules: [
       'The monitor shows which blocks to remove (hollow squares). Carve your slab to match.',
-      'A chisels or restores the block under your cursor. B submits.',
+      '{A} chisels or restores the block under your cursor. {B} submits.',
       'When time runs out, every wrong slab earns its carver a visit from the ceiling turret.',
       'Patterns get bigger and the clock gets shorter. Survive all eight.',
     ],

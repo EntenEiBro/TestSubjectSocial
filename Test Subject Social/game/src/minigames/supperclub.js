@@ -71,7 +71,7 @@ export class SupperClub extends Minigame {
     controls: [{ input: 'a', label: 'Load fork' }, { input: 'b', label: 'Eat forkful' }],
     objective: 'Clean your plate first — without being seen eating.',
     rules: [
-      'A loads a pea onto your fork (three max). B eats the forkful.',
+      '{A} loads a pea onto your fork (three max). {B} eats the forkful.',
       'When the host lowers his paper and his eyes glow red, touch nothing.',
       'A rustle and a creak come first. Sometimes he is only bluffing.',
       'At the 60 second gong, the guest with the most peas left is excused. Permanently.',

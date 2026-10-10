@@ -36,7 +36,7 @@ export class SmokeBreak extends Minigame {
     controls: [{ input: 'a', label: 'Hold to inhale, release to puff' }],
     objective: 'Take the most good puffs before the break ends.',
     rules: [
-      'Hold A to fill your lungs. Release inside the green zone for a good puff.',
+      'Hold {A} to fill your lungs. Release inside the green zone for a good puff.',
       'Too early does nothing. Fill to the top and you cough for 2 seconds.',
       'The zone moves after every puff.',
       'Fewest puffs when the break ends is shown the exit. By the turret.',

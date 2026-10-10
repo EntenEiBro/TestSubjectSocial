@@ -79,8 +79,8 @@ export class SyringeHunt extends Minigame {
     controls: [{ input: 'move', label: 'Move' }, { input: 'a', label: 'Hold: search · Tap: stab' }, { input: 'b', label: 'Shove (stuns infected)' }],
     objective: 'Find the syringe and infect everyone — or stay clean until the clock runs out.',
     rules: [
-      'Hold A at a locker, cabinet or desk to search it. One of them hides the syringe.',
-      'The finder is infected. Infected subjects stab others with A to convert them.',
+      'Hold {A} at a locker, cabinet or desk to search it. One of them hides the syringe.',
+      'The finder is infected. Infected subjects stab others with {A} to convert them.',
       'Clean subjects shove the infected to stun them. At time-out the infected are purged.',
     ],
   };
@@ -268,7 +268,7 @@ export class SyringeHunt extends Minigame {
   // -------------------------------------------------------------- lifecycle
 
   start() {
-    this.hud.prompt('Hold A at a container to search it');
+    this.hud.prompt('Hold {A} at a container to search it');
     setTimeout(() => { if (this.state === 'play') this.hud.prompt(null); }, 5000);
   }
 

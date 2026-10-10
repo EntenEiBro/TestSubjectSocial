@@ -13,6 +13,8 @@
  *   bot  — values written by an AI routine each frame
  */
 
+import { setInputMode } from '../ui/prompts.js';
+
 const KEYMAPS = {
   kb1: { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], a: ['KeyF', 'Space'], b: ['KeyG'] },
   kb2: {
@@ -149,6 +151,10 @@ export class InputManager {
   update() {
     const pads = navigator.getGamepads ? [...navigator.getGamepads()] : [];
     this.padState = pads;
+    // Any gamepad activity switches on-screen prompts to controller buttons.
+    for (const gp of pads) {
+      if (gp && (gp.buttons.some((b) => b.pressed) || gp.axes.some((a) => Math.abs(a) > 0.5))) { setInputMode('gamepad'); break; }
+    }
     this.actionsThisFrame = this._pendingActions;
     this._pendingActions = new Set();
 

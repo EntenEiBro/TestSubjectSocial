@@ -21,6 +21,7 @@ export const UI_DYNAMIC = [
   'DOCILE', 'COMPETENT', 'RUTHLESS',           // bot skill
   'OFF', 'LOW', 'MEDIUM', 'HIGH',               // haptic strength
   'JUMPSUIT', 'SKIN', 'HEAD', 'FACE', 'READY',  // lobby fields
+  'ARROWS', 'L-STICK', 'JOYSTICK', 'BACK',      // words inside button prompts (prompts.js)
 ];
 
 export const HUD_PHRASES = [
@@ -33,11 +34,11 @@ export const HUD_PHRASES = [
   // hot spider
   'CATCH!', 'INCOMING', 'FOLDED', 'SPIDER!', 'IMMUNE',
   // forklift
-  'Stick = drive · A = forks · B = horn', 'LOADED', 'EQUAL FAILURE. EQUAL PUNISHMENT.', 'PERFORMANCE REVIEW',
+  '{MOVE} drive · {A} forks · {B} horn', 'LOADED', 'EQUAL FAILURE. EQUAL PUNISHMENT.', 'PERFORMANCE REVIEW',
   // incinerator
   'FILTERED', 'FILTERING...', 'BURNED +1', 'WRONG! −1', 'MISSED ART −1',
   // open season
-  'RUN', 'SEASON CLOSED', 'RUNNER', 'HUNTER', 'RUNNER · DOWN', 'RUNNER · OUT', 'RUNNER · WOUNDED',
+  'RUN', 'SEASON CLOSED', 'Hunter: {MOVE} aims, {A} fires', 'Runners: reach the green exit, {B} dives', 'RUNNER', 'HUNTER', 'RUNNER · DOWN', 'RUNNER · OUT', 'RUNNER · WOUNDED',
   // escalator
   'OVERDRIVE', 'STUMBLE!', 'MULCHED',
   // piston
@@ -52,7 +53,7 @@ export const HUD_PHRASES = [
   // supper club
   'BON APPÉTIT', 'EXCUSED', 'PLATE CLEAN', 'CAUGHT', 'LAST PLATE', 'DINNER IS OVER', 'CAUGHT EATING', 'SLOWEST EATER',
   // syringe
-  'SOMEONE HAS THE SYRINGE', 'Hold A at a container to search it', 'INFECTED', 'SEARCHING', 'TOTAL INFECTION',
+  'SOMEONE HAS THE SYRINGE', 'Hold {A} at a container to search it', 'INFECTED', 'SEARCHING', 'TOTAL INFECTION',
   // sonar
   'CROSS', 'STAND STILL TO PING SONAR', 'FIRST OUT', 'HARVEST TIME', 'NO MERCY',
   // symbol floor

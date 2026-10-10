@@ -16,6 +16,7 @@ import { Signal, rtcConfig } from './signal.js';
 import { TouchControls, isTouchDevice } from '../ui/touch.js';
 import { Haptics } from '../core/haptics.js';
 import { t, setLanguage, LANGUAGES } from '../i18n/i18n.js';
+import { tp, initInputMode } from '../ui/prompts.js';
 
 /** Use this device's saved language (or its system language) for the client's own messages. */
 function initLanguage() {
@@ -29,6 +30,7 @@ const SEND_MS = 16;
 
 export async function runClient(code) {
   initLanguage();
+  initInputMode(isTouchDevice());
   const stage = document.getElementById('stage');
   const canvas = document.getElementById('view');
   const overlay = document.getElementById('overlay');
@@ -113,7 +115,7 @@ export async function runClient(code) {
     if (msg.t === 'hello') {
       const badge = document.createElement('div');
       badge.className = 'net-badge';
-      badge.textContent = t('ONLINE · PLAYER {n} · PRESS Ⓐ / F / ENTER IN THE LOBBY TO JOIN', { n: myId ?? msg.id });
+      badge.innerHTML = tp('ONLINE · PLAYER {n} · PRESS {A} IN THE LOBBY TO JOIN', { n: myId ?? msg.id });
       stage.appendChild(badge);
       setTimeout(() => badge.classList.add('fade'), 6000);
     }
