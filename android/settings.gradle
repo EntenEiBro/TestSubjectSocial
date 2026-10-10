@@ -1,0 +1,20 @@
+// Android shell for Test Subject Social.
+// The game itself lives in ../Test Subject Social/game and is copied into
+// the APK's assets at build time (see app/build.gradle), so there is only
+// ever one copy of the game files in the project.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "TestSubjectSocial"
+include ':app'

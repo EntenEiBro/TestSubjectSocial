@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Single source of truth for the game files (shared with the Windows build).
+def gameDir = file("${rootDir}/../Test Subject Social/game")
+def generatedAssets = layout.buildDirectory.dir("generated/gameAssets")
+
+android {
+    namespace 'com.testsubjectsocial.game'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.testsubjectsocial.game'
+        minSdk 24          // Android 7.0+
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Signed with the debug key so the APK installs directly on your
+            // own phones. (A Play Store upload would need a real release key.)
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += generatedAssets
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+// Copy the game into the APK as assets/game/** before every build.
+def copyGameAssets = tasks.register('copyGameAssets', Sync) {
+    from gameDir
+    into generatedAssets.map { it.dir('game') }
+    exclude '**/__pycache__/**'
+}
+tasks.named('preBuild') { dependsOn copyGameAssets }

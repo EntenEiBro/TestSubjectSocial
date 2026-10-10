@@ -1,0 +1,23 @@
+# --- Build output (attached to GitHub Releases instead of committed) ---------
+
+# PyInstaller (rebuild with: python build_exe.py)
+build/
+Test Subject Social/_internal/
+Test Subject Social/Test Subject Social.exe
+Test Subject Social/README.txt
+dist/
+
+# Android (rebuild with: python build_apk.py)
+*.apk
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+
+# Python
+__pycache__/
+*.pyc
+
+# Local tooling / editor settings
+.claude/
+*.log

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Subject Social</title>
+  <link rel="icon" href="icon.png">
+  <!-- Everything is bundled locally (vendor/) so the game runs offline. -->
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- three.js is the only dependency; loaded as an ES module via an import map. -->
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="hud" class="hidden"></div>
+    <div id="overlay" class="overlay"></div>
+    <div class="fx-grain"></div>
+    <div class="fx-vignette"></div>
+  </div>
+  <noscript>This game needs JavaScript.</noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
