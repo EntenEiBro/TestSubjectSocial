@@ -15,10 +15,20 @@ import { InputManager } from '../core/input.js';
 import { Signal, rtcConfig } from './signal.js';
 import { TouchControls, isTouchDevice } from '../ui/touch.js';
 import { Haptics } from '../core/haptics.js';
+import { t, setLanguage, LANGUAGES } from '../i18n/i18n.js';
+
+/** Use this device's saved language (or its system language) for the client's own messages. */
+function initLanguage() {
+  let lang = null;
+  try { lang = JSON.parse(localStorage.getItem('tss.settings.v1') || '{}').lang; } catch (_) { /* no storage */ }
+  if (!lang) lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+  setLanguage(LANGUAGES.some((l) => l.code === lang) ? lang : 'en');
+}
 
 const SEND_MS = 16;
 
 export async function runClient(code) {
+  initLanguage();
   const stage = document.getElementById('stage');
   const canvas = document.getElementById('view');
   const overlay = document.getElementById('overlay');
@@ -36,7 +46,7 @@ export async function runClient(code) {
     overlay.className = 'overlay dim';
     overlay.innerHTML = `<div class="panel-screen"><h1>${title}</h1><p>${body}</p><div class="hint">ROOM ${code}</div></div>`;
   };
-  status('CONNECTING', 'Contacting the facility…');
+  status(t('CONNECTING'), t('Contacting the facility…'));
 
   // Silence the mirrored sounds while this app is in the background.
   document.addEventListener('visibilitychange', () => (document.hidden ? Audio.suspend() : Audio.resume()));
@@ -57,7 +67,7 @@ export async function runClient(code) {
     signal = new Signal(code, 'client');
     await signal.opened;
   } catch (e) {
-    status('NO CONNECTION', e.message);
+    status(t('NO CONNECTION'), e.message);
     return;
   }
 
@@ -68,7 +78,7 @@ export async function runClient(code) {
   pc.ontrack = (e) => { video.srcObject = e.streams[0] || new MediaStream([e.track]); video.play().catch(() => {}); };
   pc.onicecandidate = (e) => { if (e.candidate) signal.send({ data: { t: 'ice', c: e.candidate } }); };
   pc.onconnectionstatechange = () => {
-    if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) status('DISCONNECTED', 'The connection to the host was lost.');
+    if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) status(t('DISCONNECTED'), t('The connection to the host was lost.'));
   };
   pc.ondatachannel = (e) => {
     const ch = e.channel;
@@ -77,8 +87,8 @@ export async function runClient(code) {
   };
 
   signal.onMessage = async (m) => {
-    if (m.type === 'welcome') { myId = m.id; status('CONNECTING', 'Negotiating video link…'); }
-    else if (m.type === 'error') status('NO CONNECTION', m.reason === 'no such room' ? `Room ${code} does not exist.` : m.reason);
+    if (m.type === 'welcome') { myId = m.id; status(t('CONNECTING'), t('Negotiating video link…')); }
+    else if (m.type === 'error') status(t('NO CONNECTION'), m.reason === 'no such room' ? t('Room {code} does not exist.', { code }) : m.reason);
     else if (m.type === 'msg') {
       const d = m.data || {};
       if (d.t === 'offer') {
@@ -103,7 +113,7 @@ export async function runClient(code) {
     if (msg.t === 'hello') {
       const badge = document.createElement('div');
       badge.className = 'net-badge';
-      badge.textContent = `ONLINE · PLAYER ${myId ?? msg.id} · PRESS Ⓐ / F / ENTER IN THE LOBBY TO JOIN`;
+      badge.textContent = t('ONLINE · PLAYER {n} · PRESS Ⓐ / F / ENTER IN THE LOBBY TO JOIN', { n: myId ?? msg.id });
       stage.appendChild(badge);
       setTimeout(() => badge.classList.add('fade'), 6000);
     }

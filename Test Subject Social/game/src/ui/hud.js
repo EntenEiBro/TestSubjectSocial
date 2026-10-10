@@ -12,6 +12,7 @@
  *   hud.tag(seat, {x,y} | null)      floating name tag (normalized screen coords)
  */
 import { formatTime } from '../core/util.js';
+import { t, tr } from '../i18n/i18n.js'; // every HUD message is translated with tr()
 
 export class Hud {
   constructor(root) {
@@ -50,7 +51,7 @@ export class Hud {
       const div = document.createElement('div');
       div.className = `hud-panel corner-${i}`;
       div.style.setProperty('--pc', p.color);
-      div.innerHTML = `<div class="hp-name">${p.name}${p.isBot ? ' <span class="bot">BOT</span>' : ''}</div><div class="hp-status"></div><div class="hp-stat"></div>`;
+      div.innerHTML = `<div class="hp-name">${p.name}${p.isBot ? ` <span class="bot">${t('BOT')}</span>` : ''}</div><div class="hp-status"></div><div class="hp-stat"></div>`;
       this.el.panels.appendChild(div);
       this.panelMap.set(seat, div);
       const tag = document.createElement('div');
@@ -74,6 +75,7 @@ export class Hud {
     const div = this.panelMap.get(seat);
     if (!div) return;
     const s = div.querySelector('.hp-stat');
+    text = tr(text);
     if (s.textContent !== text) s.textContent = text;
   }
 
@@ -81,6 +83,7 @@ export class Hud {
     const div = this.panelMap.get(seat);
     if (!div) return;
     const s = div.querySelector('.hp-status');
+    text = tr(text);
     if (s.textContent !== text) s.textContent = text;
   }
 
@@ -93,7 +96,7 @@ export class Hud {
   banner(text, ms = 1600, cls = '') {
     const b = this.el.banner;
     b.className = `hud-banner ${cls}`;
-    b.textContent = text;
+    b.textContent = tr(text);
     clearTimeout(this._bannerTimeout);
     if (ms > 0) this._bannerTimeout = setTimeout(() => b.classList.add('hidden'), ms);
   }
@@ -102,6 +105,7 @@ export class Hud {
     const p = this.el.prompt;
     if (!text) { p.classList.add('hidden'); return; }
     p.classList.remove('hidden');
+    text = tr(text);
     if (p.innerHTML !== text) p.innerHTML = text;
   }
 
@@ -109,7 +113,7 @@ export class Hud {
     const line = document.createElement('div');
     line.className = 'feed-line';
     line.style.setProperty('--pc', color);
-    line.textContent = text;
+    line.textContent = tr(text);
     this.el.feed.prepend(line);
     setTimeout(() => line.classList.add('fade'), 3200);
     setTimeout(() => line.remove(), 4000);

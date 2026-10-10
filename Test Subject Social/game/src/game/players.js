@@ -3,6 +3,7 @@
  */
 import { SUIT_COLORS, SKIN_TONES, HATS, FACES, SLOT_COLORS } from '../core/characters.js';
 import { pick, randInt } from '../core/util.js';
+import { t } from '../i18n/i18n.js';
 
 export const MAX_PLAYERS = 4;
 export const MIN_PLAYERS = 2;
@@ -25,7 +26,6 @@ export class Player {
     this.slot = slot;
     this.device = device;
     this.isBot = device === 'bot';
-    this.name = this.isBot ? `UNIT-${slot + 1}` : `SUBJECT ${slot + 1}`;
     this.color = SLOT_COLORS[slot];
     this.look = {
       suit: SUIT_COLORS[slot * 2 % SUIT_COLORS.length].hex,
@@ -37,6 +37,11 @@ export class Player {
     if (this.isBot) this.randomizeLook();
     this.ready = this.isBot;
     this.resetStats();
+  }
+
+  /** Display name in the current language ("SUBJECT 2", "UNIT-3", "SUBJEKT 2"...). */
+  get name() {
+    return this.isBot ? t('UNIT-{n}', { n: this.slot + 1 }) : t('SUBJECT {n}', { n: this.slot + 1 });
   }
 
   resetStats() {
@@ -68,8 +73,8 @@ export class Player {
 
   /** Display name of the current value of a field. */
   lookLabel(field) {
-    if (field === 'suit') return SUIT_COLORS[this.lookIndex.suit].name;
-    if (field === 'skin') return `Tone ${this.lookIndex.skin + 1}`;
-    return this.look[field];
+    if (field === 'suit') return t(SUIT_COLORS[this.lookIndex.suit].name);
+    if (field === 'skin') return t('Tone {n}', { n: this.lookIndex.skin + 1 });
+    return t(this.look[field]);
   }
 }

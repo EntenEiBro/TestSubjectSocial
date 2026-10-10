@@ -42,8 +42,12 @@ const SFX_FEELS = {
 
 const WINDOW_MS = 45; // feels closer together than this are merged (highest priority wins)
 
+/** Strength per level (SETTINGS → HAPTIC STRENGTH): 0 OFF, 1 LOW, 2 MEDIUM, 3 HIGH. */
+const LEVEL_SCALE = [0, 0.35, 0.65, 1];
+
 export const Haptics = {
-  enabled: true,
+  level: 3,
+  get enabled() { return this.level > 0; },
   _lastAt: 0,
   _lastPrio: -1,
   _busyUntil: 0,
@@ -66,14 +70,21 @@ export const Haptics = {
     this._lastAt = now;
     this._lastPrio = feel.prio;
     this._busyUntil = now + (feel.wave ? feel.wave[0].reduce((a, b) => a + b, 0) : 20);
+    const scale = LEVEL_SCALE[this.level] ?? 1;
+    // System effects can't be made weaker, so lower levels use an equivalent short pulse instead.
+    const NATIVE_PULSE = { tick: [[0, 10], [0, 140]], click: [[0, 18], [0, 200]], heavy: [[0, 45], [0, 255]] };
+    const useNative = feel.native && scale >= 1 && !(feel.prio >= 5 && feel.wave);
+    const wave = feel.wave || NATIVE_PULSE[feel.native];
+    // Weaker levels: lower amplitude and slightly shorter pulses.
+    const timings = wave[0].map((ms, i) => (i % 2 ? Math.max(6, Math.round(ms * (0.55 + 0.45 * scale))) : ms));
+    const amps = wave[1].map((a) => (a ? Math.max(1, Math.round(a * scale)) : 0));
     try {
       const bridge = window.AndroidBridge;
       if (bridge && bridge.vibrate) {
-        if (feel.native && !(feel.prio >= 5 && feel.wave)) bridge.haptic(feel.native);
-        else bridge.vibrate(feel.wave[0].join(','), feel.wave[1].join(','));
+        if (useNative) bridge.haptic(feel.native);
+        else bridge.vibrate(timings.join(','), amps.join(','));
       } else if (typeof navigator.vibrate === 'function') {
-        const timings = feel.wave ? feel.wave[0].slice(1) : [feel.native === 'heavy' ? 40 : feel.native === 'click' ? 18 : 8];
-        navigator.vibrate(timings);
+        navigator.vibrate(timings.slice(1)); // browsers have no strength control: shorter pulses only
       }
     } catch (_) { /* vibration unavailable: ignore */ }
   },

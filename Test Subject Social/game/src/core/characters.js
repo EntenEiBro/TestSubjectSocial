@@ -15,7 +15,7 @@
  *             └ hat
  */
 import * as THREE from 'three';
-import { Tex, mat, textTexture } from './textures.js';
+import { Tex, mat, textTexture, canvasTexture } from './textures.js';
 import { clamp, damp, lerp } from './util.js';
 
 /** Jumpsuit colours offered in the lobby. */
@@ -50,73 +50,166 @@ function part(geo, material, x = 0, y = 0, z = 0) {
   return m;
 }
 
-/** Build headwear geometry for a hat name. Returns a Group or null. */
+/**
+ * Small tileable textures for headwear (knit ribs, party stripes, bag
+ * creases). Cached per colour by canvasTexture().
+ */
+function hatTexture(kind, color) {
+  const hex = `#${new THREE.Color(color).getHexString()}`;
+  return canvasTexture(`hat-${kind}-${hex}`, 64, (c, s) => {
+    c.fillStyle = hex; c.fillRect(0, 0, s, s);
+    if (kind === 'knit') {
+      // vertical ribs + tiny stitch noise
+      for (let x = 0; x < s; x += 8) { c.fillStyle = 'rgba(0,0,0,0.18)'; c.fillRect(x, 0, 3, s); c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(x + 4, 0, 2, s); }
+      for (let i = 0; i < 300; i++) { c.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`; c.fillRect(Math.random() * s, Math.random() * s, 2, 1); }
+    } else if (kind === 'stripes') {
+      c.fillStyle = '#f2ead8';
+      for (let y = -s; y < s * 2; y += 16) { c.beginPath(); c.moveTo(0, y); c.lineTo(s, y + s * 0.5); c.lineTo(s, y + s * 0.5 + 7); c.lineTo(0, y + 7); c.fill(); }
+      for (let i = 0; i < 18; i++) { c.fillStyle = ['#ffd84a', '#4ad2ff', '#ff5ab0'][i % 3]; c.fillRect(Math.random() * s, Math.random() * s, 3, 3); }
+    } else if (kind === 'paper') {
+      for (let i = 0; i < 14; i++) { c.strokeStyle = `rgba(60,40,15,${0.1 + Math.random() * 0.15})`; c.beginPath(); c.moveTo(Math.random() * s, 0); c.lineTo(Math.random() * s, s); c.stroke(); }
+      for (let i = 0; i < 400; i++) { c.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; c.fillRect(Math.random() * s, Math.random() * s, 1, 1); }
+    }
+  });
+}
+
+/**
+ * Build headwear for a hat name, fitted to the blocky head: the skull is a
+ * 0.42 cube centred at y=0.02, so its top is at y≈0.23 and its face at z≈0.21.
+ * Returns a Group or null.
+ */
 function buildHat(name, color) {
   const g = new THREE.Group();
-  const M = (c, map) => mat(c, map || Tex.fabric());
+  const add = (geo, material, x = 0, y = 0, z = 0, rot = null) => {
+    const m = part(geo, material, x, y, z);
+    if (rot) m.rotation.set(rot[0], rot[1], rot[2]);
+    g.add(m);
+    return m;
+  };
+  const cyl = (rt, rb, h, seg = 20, open = false) => new THREE.CylinderGeometry(rt, rb, h, seg, 1, open);
+  const metal = (c) => mat(c, Tex.metal());
+  const dark = (c, k = 0.7) => new THREE.Color(c).multiplyScalar(k);
+
   switch (name) {
     case 'Hard Hat': {
-      const dome = part(new THREE.SphereGeometry(0.27, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), M(0xd8b02a));
-      const brim = part(new THREE.CylinderGeometry(0.34, 0.34, 0.04, 10), M(0xc9a020));
-      dome.position.y = 0.17; brim.position.y = 0.17; brim.position.z = 0.04;
-      g.add(dome, brim); break;
+      // Rounded shell that hugs the cube head, a centre ridge, a front peak and a sticker.
+      const yellow = mat(0xe0b52a, Tex.fabric());
+      const shell = add(new THREE.SphereGeometry(0.3, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), yellow, 0, 0.17, 0);
+      shell.scale.set(1, 0.72, 1.04);
+      add(cyl(0.305, 0.305, 0.05, 28), yellow, 0, 0.19, 0);                       // band where shell meets head
+      add(box(0.07, 0.07, 0.56), mat(0xd0a420, Tex.fabric()), 0, 0.37, 0);          // ridge
+      add(box(0.46, 0.035, 0.16), mat(0xcfa21f, Tex.fabric()), 0, 0.185, 0.33, [0.12, 0, 0]); // front peak
+      add(new THREE.PlaneGeometry(0.12, 0.08), mat(0xffffff, Tex.hazard()), 0, 0.27, 0.302, [-0.35, 0, 0]); // sticker
+      break;
     }
     case 'Beanie': {
-      const b = part(new THREE.SphereGeometry(0.26, 8, 5, 0, Math.PI * 2, 0, Math.PI / 1.8), M(color));
-      const fold = part(new THREE.CylinderGeometry(0.265, 0.265, 0.08, 10), M(new THREE.Color(color).multiplyScalar(0.7)));
-      b.position.y = 0.12; fold.position.y = 0.13;
-      const pom = part(new THREE.SphereGeometry(0.07, 6, 4), M(0xdddddd)); pom.position.y = 0.38;
-      g.add(b, fold, pom); break;
+      // Knit body with ribbed texture, a thick folded cuff and a fluffy pompom.
+      const knit = mat(0xffffff, hatTexture('knit', color));
+      const body = add(new THREE.SphereGeometry(0.28, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), knit, 0, 0.2, 0);
+      body.scale.set(1.0, 0.85, 1.0);
+      add(cyl(0.285, 0.29, 0.11, 24), mat(0xffffff, hatTexture('knit', dark(color))), 0, 0.2, 0); // cuff
+      const pom = new THREE.Group();
+      for (let i = 0; i < 7; i++) {
+        const blob = part(new THREE.IcosahedronGeometry(0.05, 1), mat(0xeeeae0, Tex.fabric()), Math.sin(i * 1.7) * 0.03, Math.cos(i * 2.3) * 0.02, Math.cos(i * 1.7) * 0.03);
+        pom.add(blob);
+      }
+      pom.position.y = 0.46;
+      g.add(pom);
+      break;
     }
     case 'Bucket': {
-      const bk = part(new THREE.CylinderGeometry(0.25, 0.3, 0.42, 10, 1, true), mat(0x7e8486, Tex.metal(), { side: THREE.DoubleSide }));
-      bk.position.y = 0.12;
-      const top = part(new THREE.CylinderGeometry(0.25, 0.25, 0.02, 10), mat(0x6e7476, Tex.metal()));
-      top.position.y = 0.33;
-      g.add(bk, top); break;
+      // Dented metal pail, upside down, with a rolled rim, ribs and a dangling handle.
+      const pail = metal(0x8a9092);
+      add(cyl(0.22, 0.27, 0.4, 20, true), mat(0x8a9092, Tex.metal(), { side: THREE.DoubleSide }), 0, 0.15, 0);
+      add(cyl(0.22, 0.22, 0.02, 20), pail, 0, 0.35, 0);                             // bottom (now the top)
+      add(new THREE.TorusGeometry(0.27, 0.018, 6, 24), metal(0x9aa0a2), 0, -0.05, 0, [Math.PI / 2, 0, 0]); // rolled rim
+      for (const y of [0.06, 0.24]) add(new THREE.TorusGeometry(0.25 - (y - 0.06) * 0.14, 0.01, 4, 24), metal(0x737a7c), 0, y, 0, [Math.PI / 2, 0, 0]); // ribs
+      add(new THREE.TorusGeometry(0.2, 0.012, 4, 16, Math.PI), metal(0x5d6365), 0, -0.02, 0, [0, 0, Math.PI]); // handle
+      add(box(0.06, 0.06, 0.02), metal(0x5d6365), 0.27, 0.0, 0);                     // handle lugs
+      add(box(0.06, 0.06, 0.02), metal(0x5d6365), -0.27, 0.0, 0);
+      add(new THREE.SphereGeometry(0.05, 8, 6), metal(0x7c8284), 0.12, 0.27, 0.19).scale.set(1, 0.5, 0.3); // dent
+      break;
     }
     case 'Paper Bag': {
-      const bag = part(box(0.48, 0.58, 0.44), mat(0xa88a5c, Tex.fabric()));
-      bag.position.y = 0.02;
-      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
-      const e1 = part(box(0.07, 0.06, 0.01), eyeMat, -0.1, 0.06, 0.225);
-      const e2 = part(box(0.07, 0.06, 0.01), eyeMat, 0.1, 0.06, 0.225);
-      g.add(bag, e1, e2); break;
+      // Creased grocery bag with a jagged rolled top, cut-out eyes and a wonky mouth.
+      const paper = mat(0xb08f5c, hatTexture('paper', 0xb08f5c));
+      add(box(0.5, 0.56, 0.48), paper, 0, 0.04, 0);
+      for (let i = 0; i < 9; i++) {                                                  // jagged crumpled top edge
+        const tooth = add(box(0.07, 0.08, 0.49), mat(0xa8854f, hatTexture('paper', 0xa8854f)), -0.22 + i * 0.055, 0.33 + (i % 2) * 0.02, 0);
+        tooth.rotation.z = (i % 2 ? 0.25 : -0.25);
+      }
+      const hole = new THREE.MeshBasicMaterial({ color: 0x080808 });
+      add(new THREE.CircleGeometry(0.045, 12), hole, -0.1, 0.08, 0.242);
+      add(new THREE.CircleGeometry(0.04, 12), hole, 0.1, 0.09, 0.242);
+      add(box(0.14, 0.025, 0.005), hole, 0.01, -0.08, 0.242, [0, 0, 0.12]);
+      add(box(0.004, 0.5, 0.004), mat(0x7a5d34), 0.12, 0.04, 0.242);                  // vertical crease
+      break;
     }
     case 'Top Hat': {
-      const t = part(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 10), M(0x1d1c1f));
-      const br = part(new THREE.CylinderGeometry(0.33, 0.33, 0.03, 12), M(0x1d1c1f));
-      const band = part(new THREE.CylinderGeometry(0.205, 0.205, 0.06, 10), M(0x7a1f1f));
-      t.position.y = 0.38; br.position.y = 0.19; band.position.y = 0.23;
-      g.add(t, br, band); break;
+      // Tall silk crown that flares slightly, curled brim and a band with a buckle.
+      const silk = mat(0x1c1b20, Tex.fabric());
+      add(cyl(0.205, 0.185, 0.44, 24), silk, 0, 0.43, 0);
+      add(cyl(0.205, 0.205, 0.02, 24), mat(0x2a2930, Tex.fabric()), 0, 0.655, 0);   // crown top
+      add(cyl(0.34, 0.34, 0.025, 28), silk, 0, 0.215, 0);                           // brim
+      add(new THREE.TorusGeometry(0.335, 0.022, 6, 28), silk, 0, 0.23, 0, [Math.PI / 2, 0, 0]); // curled edge
+      add(cyl(0.19, 0.19, 0.07, 24), mat(0x7a1f1f, Tex.fabric()), 0, 0.27, 0);       // band
+      add(box(0.07, 0.06, 0.02), metal(0xc9a742), 0, 0.27, 0.19);                    // buckle
+      break;
     }
     case 'Gas Mask': {
-      const m = part(box(0.36, 0.26, 0.12), mat(0x2f322c, Tex.fabric()), 0, -0.06, 0.2);
-      const can = part(new THREE.CylinderGeometry(0.08, 0.08, 0.14, 8), mat(0x4d5246, Tex.metal()), 0, -0.14, 0.3);
-      can.rotation.x = Math.PI / 2;
-      const glass = new THREE.MeshBasicMaterial({ color: 0x8fa38a });
-      g.add(m, can, part(new THREE.CircleGeometry(0.06, 8), glass, -0.09, 0.05, 0.226), part(new THREE.CircleGeometry(0.06, 8), glass, 0.09, 0.05, 0.226));
+      // Rubber face piece with framed round lenses, a ribbed filter canister and head straps.
+      const rubber = mat(0x2c3029, Tex.fabric());
+      add(box(0.4, 0.3, 0.1), rubber, 0, -0.02, 0.25);
+      add(cyl(0.11, 0.14, 0.12, 16), rubber, 0, -0.14, 0.31, [Math.PI / 2, 0, 0]);   // snout
+      const can = new THREE.Group();
+      can.add(part(cyl(0.085, 0.085, 0.16, 16), metal(0x55604c)));
+      for (const y of [-0.05, 0, 0.05]) can.add(part(cyl(0.09, 0.09, 0.012, 16), metal(0x3e4637), 0, y, 0));
+      can.position.set(0, -0.17, 0.43); can.rotation.x = Math.PI / 2 - 0.3;
+      g.add(can);
+      const glass = new THREE.MeshBasicMaterial({ color: 0x9fb89a });
+      for (const x of [-0.1, 0.1]) {
+        add(new THREE.CircleGeometry(0.065, 16), glass, x, 0.07, 0.302);
+        add(new THREE.TorusGeometry(0.068, 0.014, 6, 16), metal(0x6b6f66), x, 0.07, 0.302);
+      }
+      for (const y of [0.05, 0.2]) add(box(0.44, 0.035, 0.44), rubber, 0, y, -0.01);  // straps round the head
       break;
     }
     case 'Welder': {
-      const v = part(box(0.44, 0.42, 0.08), mat(0x2a2a26, Tex.metal()), 0, 0.02, 0.24);
-      const win = part(box(0.26, 0.07, 0.01), new THREE.MeshBasicMaterial({ color: 0x1f3d1c }), 0, 0.06, 0.285);
-      const strap = part(new THREE.TorusGeometry(0.25, 0.025, 4, 12), mat(0x222222), 0, 0.08, 0);
-      strap.rotation.x = Math.PI / 2;
-      g.add(v, win, strap); break;
+      // Flip-down welding helmet: curved shield, dark filter window, side hinges, head harness.
+      const shellMat = mat(0x2d2d29, Tex.metal());
+      add(box(0.48, 0.48, 0.06), shellMat, 0, 0.0, 0.27);
+      add(box(0.06, 0.48, 0.24), shellMat, 0.24, 0.0, 0.17);
+      add(box(0.06, 0.48, 0.24), shellMat, -0.24, 0.0, 0.17);
+      add(box(0.48, 0.06, 0.24), shellMat, 0, 0.24, 0.17);
+      add(box(0.3, 0.11, 0.02), metal(0x4a4a44), 0, 0.07, 0.305);                     // window frame
+      add(box(0.26, 0.08, 0.005), new THREE.MeshBasicMaterial({ color: 0x173a20 }), 0, 0.07, 0.317); // filter glass
+      for (const x of [-0.275, 0.275]) add(cyl(0.04, 0.04, 0.03, 12), metal(0x8b8b80), x, 0.1, 0.1, [0, 0, Math.PI / 2]); // hinges
+      add(new THREE.TorusGeometry(0.235, 0.022, 6, 24), mat(0x222222), 0, 0.12, 0, [Math.PI / 2, 0, 0]); // harness
+      add(box(0.5, 0.02, 0.06), mat(0x7a1f1f), 0, -0.2, 0.3);                          // red trim
+      break;
     }
     case 'Headlamp': {
-      const strap = part(new THREE.TorusGeometry(0.255, 0.03, 4, 14), mat(0x202020), 0, 0.07, 0);
-      strap.rotation.x = Math.PI / 2;
-      const lamp = part(box(0.12, 0.09, 0.06), mat(0x444444), 0, 0.08, 0.27);
-      const lens = part(new THREE.CircleGeometry(0.04, 8), new THREE.MeshBasicMaterial({ color: 0xfff2b0 }), 0, 0.08, 0.301);
-      g.add(strap, lamp, lens); break;
+      // Elastic band (around and over the head), lamp housing with a glowing lens, battery pack.
+      const band = mat(0x1d1f22, Tex.fabric());
+      add(box(0.45, 0.06, 0.45), band, 0, 0.1, 0);                                     // around
+      add(box(0.06, 0.03, 0.46), band, 0, 0.245, 0);                                    // over the top
+      add(box(0.16, 0.11, 0.08), metal(0x3a3c40), 0, 0.11, 0.26);                       // housing
+      add(cyl(0.05, 0.05, 0.03, 16), metal(0x9a9da2), 0, 0.11, 0.31, [Math.PI / 2, 0, 0]); // bezel
+      add(new THREE.CircleGeometry(0.042, 16), new THREE.MeshBasicMaterial({ color: 0xfff4c0 }), 0, 0.11, 0.327);
+      add(box(0.15, 0.09, 0.06), metal(0x2f3134), 0, 0.12, -0.25);                       // battery pack
+      add(box(0.03, 0.02, 0.01), new THREE.MeshBasicMaterial({ color: 0x47ff6a }), 0.04, 0.14, -0.281); // charge LED
+      break;
     }
     case 'Party Hat': {
-      const c = part(new THREE.ConeGeometry(0.17, 0.45, 8), M(color));
-      c.position.y = 0.4; c.rotation.z = 0.15;
-      const pom = part(new THREE.SphereGeometry(0.05, 6, 4), M(0xeeeeee)); pom.position.set(-0.035, 0.63, 0);
-      g.add(c, pom); break;
+      // Striped cone with confetti dots, a fluffy pompom and an elastic chin string.
+      add(new THREE.ConeGeometry(0.18, 0.46, 24, 1, true), mat(0xffffff, hatTexture('stripes', color), { side: THREE.DoubleSide }), -0.02, 0.45, 0, [0, 0, 0.14]);
+      add(new THREE.TorusGeometry(0.18, 0.015, 6, 24), mat(0xf2ead8), -0.002, 0.225, 0, [Math.PI / 2, 0, 0.14]); // rim trim
+      const pom = new THREE.Group();
+      for (let i = 0; i < 6; i++) pom.add(part(new THREE.IcosahedronGeometry(0.035, 1), mat(0xf2ead8, Tex.fabric()), Math.sin(i * 2.1) * 0.02, Math.cos(i * 1.3) * 0.015, Math.cos(i * 2.1) * 0.02));
+      pom.position.set(-0.055, 0.69, 0);
+      g.add(pom);
+      for (const x of [-0.2, 0.2]) add(box(0.006, 0.42, 0.006), mat(0xdddddd), x, 0.02, 0.05); // elastic
+      break;
     }
     default: return null;
   }

@@ -31,15 +31,25 @@ import { NetHost } from './net/host.js';
 import { runClient } from './net/client.js';
 import { TouchControls, isTouchDevice } from './ui/touch.js';
 import { Haptics } from './core/haptics.js';
+import { t, setLanguage, LANGUAGES } from './i18n/i18n.js';
 
 const SETTINGS_KEY = 'tss.settings.v1';
 
 class App {
   constructor() {
     // resHeight replaces the old resLevel setting; everyone starts at 1080p.
-    this.settings = { master: 0.8, music: 0.5, sfx: 0.9, botLevel: 1, resHeight: 1080, gore: true, haptics: true };
+    this.settings = { master: 0.8, music: 0.5, sfx: 0.9, botLevel: 1, resHeight: 1080, gore: true, hapticLevel: 3, lang: null };
     try { Object.assign(this.settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (_) { /* storage unavailable */ }
     delete this.settings.resLevel;
+    // Older versions stored vibration as on/off.
+    if (this.settings.haptics === false) this.settings.hapticLevel = 0;
+    delete this.settings.haptics;
+    // Language: saved choice, else the device language if we have it, else English.
+    if (!this.settings.lang) {
+      const device = (navigator.language || 'en').slice(0, 2).toLowerCase();
+      this.settings.lang = LANGUAGES.some((l) => l.code === device) ? device : 'en';
+    }
+    setLanguage(this.settings.lang);
     if (!RESOLUTIONS.some((r) => r.h === this.settings.resHeight)) this.settings.resHeight = 1080;
     this.engine = new Engine(document.getElementById('view'), { renderHeight: this.settings.resHeight });
     this.input = new InputManager();
@@ -68,6 +78,8 @@ class App {
     });
     // On-screen controls on phones and tablets.
     this.touch = isTouchDevice() ? new TouchControls(this.input) : null;
+    // Larger tap targets in menus on touch screens (see .touch-ui in style.css).
+    if (this.touch) document.getElementById('stage').classList.add('touch-ui');
     // Leaving the app (home button, app switcher, minimised window): silence
     // everything and pause an active round, so nothing happens behind your back.
     const onHidden = () => {
@@ -79,9 +91,9 @@ class App {
     window.__onAppPause = onHidden;   // called by the Android app (MainActivity.onPause)
     window.__onAppResume = onVisible; // called by the Android app (MainActivity.onResume)
     // Vibration feedback on phones: follows the game's sound effects (haptics.js).
-    Haptics.enabled = this.settings.haptics !== false;
+    Haptics.level = this.settings.hapticLevel;
     if (this.touch || this.platform === 'android') Audio.onHaptic = (name) => Haptics.fromSfx(name);
-    Commendations.onUnlock = (def) => this.toast(`COMMENDATION — ${def.title}`, def.desc);
+    Commendations.onUnlock = (def) => this.toast(t('COMMENDATION — {title}', { title: t(def.title) }), t(def.desc));
     this.showBackdrop();
     this.engine.start((dt) => this.frame(dt));
     window.__app = this; // handy for debugging in the console
@@ -145,6 +157,13 @@ class App {
   showBackdrop() { this.engine.setScene(this.backdrop.scene, this.backdrop.camera); }
 
   applyResolution() { this.engine.setRenderHeight(this.settings.resHeight); }
+
+  /** Switch the UI language (saved with the other settings). */
+  setLanguage(code) {
+    this.settings.lang = code;
+    setLanguage(code);
+    this.saveSettings();
+  }
 
   saveSettings() {
     FXSettings.gore = this.settings.gore ? 1 : 0.25;

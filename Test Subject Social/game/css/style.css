@@ -29,6 +29,17 @@ body { font-family: 'Special Elite', 'Courier New', monospace; color: var(--bone
 }
 #view, #remote-view { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; display: block; object-fit: fill; background: #050505; }
 
+/* Settings gear on the title screen (top right) */
+.gear-btn { position: absolute; top: calc(var(--u) * 3); right: calc(var(--u) * 3); width: calc(var(--u) * 9); height: calc(var(--u) * 9); display: flex; align-items: center; justify-content: center; font-size: calc(var(--u) * 6); line-height: 1; color: var(--bone); background: rgba(10, 9, 8, 0.7); border: calc(var(--u) * 0.35) solid #4a463c; border-radius: 50%; pointer-events: auto; cursor: pointer; transition: transform .2s, color .2s; font-family: 'Segoe UI Symbol', 'Noto Sans Symbols', sans-serif; }
+.gear-btn:hover, .gear-btn:active { color: var(--hazard); transform: rotate(60deg); }
+
+/* Non-Latin scripts (Cyrillic, CJK, Devanagari): the stylised fonts only cover
+   Latin, so fall back to the system's own fonts for those languages. */
+:lang(ru), :lang(zh), :lang(ja), :lang(hi) { --fallback-sans: 'Noto Sans', 'Noto Sans CJK SC', 'Noto Sans JP', 'Noto Sans Devanagari', 'Microsoft YaHei', 'Yu Gothic UI', 'Nirmala UI', 'Segoe UI', sans-serif; }
+:lang(zh) body, :lang(ja) body, :lang(hi) body, :lang(ru) body { font-family: 'Special Elite', var(--fallback-sans); }
+:lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(ja) h1, :lang(ja) h2, :lang(ja) h3, :lang(hi) h1, :lang(hi) h2, :lang(hi) h3,
+:lang(zh) .menu li, :lang(ja) .menu li, :lang(hi) .menu li { font-family: 'Black Ops One', var(--fallback-sans); font-weight: 700; letter-spacing: 0.02em; }
+
 /* Tap / click targets in menus (see runScreen in screens.js) */
 .overlay [data-tap] { pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .overlay.tap-any { pointer-events: auto; cursor: pointer; }
@@ -43,6 +54,34 @@ body { font-family: 'Special Elite', 'Courier New', monospace; color: var(--bone
 .lobby-actions .tap-btn { margin-top: 0; font-size: calc(var(--u) * 2.6); padding: calc(var(--u) * 0.6) calc(var(--u) * 2.2); }
 .slot .slot-x { float: right; font-family: 'VT323', monospace; font-size: calc(var(--u) * 2.4); color: var(--bone-dim); border: 1px solid #444; padding: 0 calc(var(--u) * 0.8); }
 .slot.empty[data-tap]:active { background: rgba(155, 29, 29, 0.25); }
+
+/* ---- Touch screens: bigger, easier-to-hit menu targets (#stage.touch-ui) ---- */
+.touch-ui .gear-btn { width: calc(var(--u) * 12); height: calc(var(--u) * 12); font-size: calc(var(--u) * 8); }
+.touch-ui .menu li { font-size: calc(var(--u) * 5.2); padding: calc(var(--u) * 1.1) calc(var(--u) * 6) calc(var(--u) * 1.1) 0; }
+.touch-ui .tap-btn { font-size: calc(var(--u) * 3.8); padding: calc(var(--u) * 1.8) calc(var(--u) * 4.5); margin-top: calc(var(--u) * 1.5); }
+.touch-ui .tap-arrow { font-size: 1.6em; padding: 0 calc(var(--u) * 2.4); line-height: 1; vertical-align: middle; }
+.touch-ui .opt-list li { padding: calc(var(--u) * 1.2) calc(var(--u) * 1.5); align-items: center; }
+.touch-ui .panel-screen { padding: calc(var(--u) * 3) calc(var(--u) * 5); }
+.touch-ui .hint { display: none; }                      /* keyboard hints are noise on a phone */
+
+/* Lobby: compact header, roomy seat cards with big controls */
+.touch-ui .lobby { padding-top: calc(var(--u) * 1.5); }
+.touch-ui .lobby-title { font-size: calc(var(--u) * 4.5); }
+.touch-ui .slots { width: 96%; gap: calc(var(--u) * 1.2); }
+.touch-ui .slot { padding: calc(var(--u) * 1) calc(var(--u) * 1.2); font-size: calc(var(--u) * 2.4); }
+.touch-ui .slot-head { font-size: calc(var(--u) * 3.2); }
+.touch-ui .slot-dev { margin-bottom: calc(var(--u) * 0.5); }
+.touch-ui .slot-row { padding: calc(var(--u) * 0.5) calc(var(--u) * 0.4); align-items: center; }
+.touch-ui .slot-row b { font-size: calc(var(--u) * 2.8); }
+.touch-ui .slot-row[data-tap^="ready"] { margin-top: calc(var(--u) * 1); min-height: calc(var(--u) * 8); justify-content: center; gap: calc(var(--u) * 1.5); border: calc(var(--u) * 0.4) solid var(--pc); background: rgba(255, 255, 255, 0.06); color: var(--bone); }
+.touch-ui .slot-row[data-tap^="ready"] span { font-family: 'Black Ops One', sans-serif; font-size: calc(var(--u) * 3.4); }
+.touch-ui .slot-row[data-tap^="ready"]:active { background: rgba(155, 29, 29, 0.45); }
+.touch-ui .slot-row.ok[data-tap^="ready"] { background: rgba(71, 255, 106, 0.18); border-color: var(--crt); }
+.touch-ui .slot .slot-x { font-size: calc(var(--u) * 3.6); padding: calc(var(--u) * 0.4) calc(var(--u) * 1.6); }
+.touch-ui .slot.empty { min-height: calc(var(--u) * 22); }
+.touch-ui .slot-empty { font-size: calc(var(--u) * 3.4); margin-top: calc(var(--u) * 2); }
+.touch-ui .lobby-status { font-size: calc(var(--u) * 3); margin-top: calc(var(--u) * 0.8); min-height: calc(var(--u) * 3.5); }
+.touch-ui .lobby-actions .tap-btn { font-size: calc(var(--u) * 3.6); padding: calc(var(--u) * 1.6) calc(var(--u) * 4); margin-top: calc(var(--u) * 0.6); }
 
 /* Touch controls (phones / tablets) */
 #touch { position: absolute; inset: 0; z-index: 40; pointer-events: none; touch-action: none; -webkit-user-select: none; user-select: none; }
