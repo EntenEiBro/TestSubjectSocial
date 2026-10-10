@@ -507,6 +507,7 @@ export default {
     "Connecting…": "Подключение…",
     "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "Неверный код — он выглядит как K7QPXW или ABCD-EFGH.",
     "The online service is not reachable.": "Онлайн-сервис недоступен.",
+    "RECONNECTING…": "ПЕРЕПОДКЛЮЧЕНИЕ…",
   },
   patterns: {
     subjectName: 'СУБЪЕКТ {1}',

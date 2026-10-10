@@ -507,6 +507,7 @@ export default {
     "Connecting…": "正在连接…",
     "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "代码无效——格式应为 K7QPXW 或 ABCD-EFGH。",
     "The online service is not reachable.": "无法连接在线服务。",
+    "RECONNECTING…": "正在重新连接…",
   },
   patterns: {
     subjectName: '受试者 {1}',

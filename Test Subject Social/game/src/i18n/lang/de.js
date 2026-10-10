@@ -507,6 +507,7 @@ export default {
     "Connecting…": "Verbinde…",
     "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "Dieser Code ist ungültig — er sieht aus wie K7QPXW oder ABCD-EFGH.",
     "The online service is not reachable.": "Der Online-Dienst ist nicht erreichbar.",
+    "RECONNECTING…": "VERBINDE NEU…",
   },
   patterns: {
     subjectName: 'SUBJEKT {1}',

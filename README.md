@@ -92,14 +92,20 @@ phones mix freely. HOST ONLINE opens two rooms at once:
 On Windows, the first launch shows a **Windows Firewall** prompt — allow access
 on private networks, otherwise other devices on your LAN cannot reach your game.
 
+If a connection drops, the joining player reconnects automatically and gets
+their seat back; while they are away their subject stands idle and the game
+does not wait for them.
+
 Technical notes: internet rooms use the bundled PeerJS library
-(`game/vendor/peerjs`, MIT); the host registers the id
-`test-subject-social-<code>` and calls each joining player with the video
-stream. Very strict networks (some corporate or mobile carriers) can block
-direct WebRTC links; then use the LAN code or a hotspot. LAN rooms use the tiny
-WebSocket relay in `serve.py` (standard library only) / the Android app's
-`GameServer` to exchange WebRTC offers; video, UI and input then flow
-peer-to-peer.
+(`game/vendor/peerjs`, MIT) for signaling only — the host registers the id
+`test-subject-social-<code>`, and a PeerJS data connection carries the WebRTC
+offer. LAN rooms carry it over the tiny WebSocket relay in `serve.py`
+(standard library only) / the Android app's `GameServer`. Both then use one
+RTCPeerConnection per player: video (capped at 720p / 1.5 Mbit/s over the
+internet), a reliable UI channel that skips stale snapshots when the link is
+busy, and an unordered no-retransmit input channel. Very strict networks (some
+corporate or mobile carriers) force traffic through PeerJS's free TURN relay,
+which can be slow; then prefer the LAN code or a hotspot.
 
 ## Controls
 

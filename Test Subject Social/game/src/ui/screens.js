@@ -88,7 +88,7 @@ export function titleScreen(app) {
       <div class="hint">${pick('Tap an option', '{MOVE} choose · {A} confirm')}</div>
     </div>
     ${app.touch ? `<div class="gear-btn" data-tap="settings" title="${t('SETTINGS')}">⚙</div>` : ''}
-    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.5' })}</div>`;
+    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.5.2' })}</div>`;
   app.backdrop.mode = 'title';
   // Populate the pedestals with random volunteers for atmosphere.
   for (let i = 0; i < MAX_PLAYERS; i++) app.backdrop.setSlot(i, new Player(i, 'bot').look, i + 1);
@@ -643,6 +643,10 @@ export function briefing(app, G, seats) {
     const off = app.onFrame(() => {
       let dirty = false;
       for (const s of humans) {
+        // An online player whose connection dropped can't press anything: don't wait for them.
+        if (s.player.device.startsWith('net') && !app.net.isLive(s.player.device) && !ready.has(s.player.id)) {
+          ready.add(s.player.id); dirty = true;
+        }
         const c = s.ctrl;
         if (c.aPressed) {
           if (page === 0) { page = 1; Audio.sfx('select'); dirty = true; break; }

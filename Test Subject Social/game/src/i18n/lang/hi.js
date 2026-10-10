@@ -507,6 +507,7 @@ export default {
     "Connecting…": "जुड़ रहा है…",
     "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "यह कोड मान्य नहीं — यह K7QPXW या ABCD-EFGH जैसा दिखता है।",
     "The online service is not reachable.": "ऑनलाइन सेवा तक पहुँच नहीं हो पा रही।",
+    "RECONNECTING…": "फिर से जुड़ रहा है…",
   },
   patterns: {
     subjectName: 'सब्जेक्ट {1}',

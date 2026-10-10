@@ -6,29 +6,36 @@
  *
  *   LAN       the built-in relay in serve.py / the Android app exchanges
  *             WebRTC offers on the local network (join code "ABCD-EFGH").
- *   Internet  PeerJS Cloud (0.peerjs.com) brokers the connection, so friends
- *             anywhere can join (6-letter internet code). PeerJS also brings
- *             public STUN/TURN servers for players behind routers.
+ *   Internet  PeerJS Cloud (0.peerjs.com) introduces the devices, so friends
+ *             anywhere can join (6-letter internet code). A PeerJS data
+ *             connection is used only to exchange the WebRTC offer; PeerJS
+ *             also brings public STUN/TURN servers for players behind routers.
  *
- * Whatever the route, each remote player gets:
+ * Both routes then build the same single RTCPeerConnection per player:
  *
  *   video        the game canvas (captureStream)            host → client
  *   ui           overlay/HUD HTML snapshots + sound events  host → client
- *   input        controller state {x, y, a, b}             client → host
+ *   input        controller state {s, x, y, a, b}           client → host
+ *                (unordered, no retransmits: stale input is dropped, never queued)
  *
  * Remote input is written into an InputManager Controller with device id
  * `net<N>`, so the lobby and every minigame treat online players exactly
- * like local keyboards or gamepads. Menus, HUD and sounds are mirrored as
- * DOM snapshots / audio event names and re-rendered by the client with the
- * same CSS and synthesizer, which keeps bandwidth tiny and text crisp.
+ * like local keyboards or gamepads. N is tied to the client's session token,
+ * so a player who drops out and reconnects gets their seat back. Menus, HUD
+ * and sounds are mirrored as DOM snapshots / audio event names and re-rendered
+ * by the client with the same CSS and synthesizer.
  */
 import { Audio } from '../core/audio.js';
-import { Signal, makeRoomCode, rtcConfig } from './signal.js';
+import { Signal, makeRoomCode, rtcConfig, INTERNET_RTC } from './signal.js';
 import { makeInternetCode, internetPeerId } from './joincode.js';
 
-const UI_SYNC_MS = 66;   // ~15 snapshots per second
+const UI_SYNC_MS = 66;          // ~15 snapshots per second
 const VIDEO_FPS = 30;
-const INTERNET_ID_BASE = 1000; // internet players get net1000+, LAN players net1+
+const GRACE_MS = 20000;         // a dropped player keeps their seat this long
+const ICE_LOST_MS = 8000;       // WebRTC 'disconnected' this long = connection lost
+const UI_BACKLOG = 64 * 1024;   // skip UI snapshots while this much is still queued
+// Video budget per player: internet links (and TURN relays) are much slower than a LAN.
+const VIDEO = { lan: { bitrate: 6000000, height: 1080 }, internet: { bitrate: 1500000, height: 720 } };
 
 export class NetHost {
   /** @param {*} app the main App (needs engine, input, overlay, hud) */
@@ -40,23 +47,33 @@ export class NetHost {
     this.error = null;
     this.lanError = null;
     this.internetError = null;
-    this.peers = new Map();    // id → { connected, send(text), close() }
+    this.players = new Map();  // link key → player (one per live connection)
+    this.devices = new Map();  // client token → device number N (seat survives reconnects)
+    this.lost = new Map();     // device number → time the connection was lost
+    this._nextDev = 1;
     this.signal = null;        // LAN relay socket
-    this.peer = null;          // PeerJS Peer
+    this.peer = null;          // PeerJS Peer (signaling only)
     this.stream = null;
-    this._last = {};           // last UI snapshot parts sent
     this._timer = null;
-    this._nextInternetId = INTERNET_ID_BASE;
     this.onChange = null;      // UI refresh callback
   }
 
   /** Number of remote players currently connected. */
-  get connectedCount() { return [...this.peers.values()].filter((p) => p.connected).length; }
+  get connectedCount() { return [...this.players.values()].filter((p) => p.connected).length; }
 
-  /** True if the online device id (e.g. 'net3') still has a live connection. */
+  /** True if the online device (e.g. 'net3') is connected right now. */
+  isLive(device) {
+    const dev = parseInt(device.slice(3), 10);
+    return [...this.players.values()].some((p) => p.dev === dev && p.connected);
+  }
+
+  /** True if the online device is connected or may still come back (grace period). */
   isConnected(device) {
-    const p = this.peers.get(parseInt(device.slice(3), 10));
-    return !!(p && p.connected);
+    if (this.isLive(device)) return true;
+    const dev = parseInt(device.slice(3), 10);
+    const pending = [...this.players.values()].some((p) => p.dev === dev);
+    const t = this.lost.get(dev);
+    return pending || (t !== undefined && performance.now() - t < GRACE_MS);
   }
 
   /** Open the LAN room and the internet room. Resolves when both attempts settle. */
@@ -65,6 +82,7 @@ export class NetHost {
     this.status = 'connecting';
     this._changed();
     this.stream = this.app.engine.renderer.domElement.captureStream(VIDEO_FPS);
+    for (const track of this.stream.getVideoTracks()) track.contentHint = 'motion';
     await Promise.all([this._startLan(), this._startInternet()]);
     if (!this.code && !this.internetCode) {
       this.status = 'error';
@@ -72,7 +90,7 @@ export class NetHost {
       this._changed();
       return;
     }
-    Audio.onEvent = (kind, name, opts) => this.broadcast({ t: 'audio', kind, name, opts });
+    Audio.onEvent = (kind, name, opts) => this.broadcast({ t: 'audio', kind, name, opts }, true);
     this._timer = setInterval(() => this._syncUI(), UI_SYNC_MS);
     this.status = 'hosting';
     this._changed();
@@ -81,7 +99,7 @@ export class NetHost {
   /** Close every connection and both rooms. */
   stop() {
     clearInterval(this._timer);
-    for (const id of [...this.peers.keys()]) this._drop(id);
+    for (const key of [...this.players.keys()]) this._lost(key);
     if (this.signal) this.signal.close();
     if (this.peer) this.peer.destroy();
     this.signal = this.peer = null;
@@ -91,10 +109,14 @@ export class NetHost {
     this._changed();
   }
 
-  /** Send a message to every connected player. */
-  broadcast(msg) {
+  /** Send a message to every connected player. `droppable` messages are skipped on congested links. */
+  broadcast(msg, droppable = false) {
     const text = JSON.stringify(msg);
-    for (const p of this.peers.values()) if (p.connected) p.send(text);
+    for (const p of this.players.values()) {
+      if (!p.connected || p.ui.readyState !== 'open') continue;
+      if (droppable && p.ui.bufferedAmount > UI_BACKLOG) continue;
+      p.ui.send(text);
+    }
   }
 
   // ============================================================== LAN (relay)
@@ -110,48 +132,13 @@ export class NetHost {
       return;
     }
     this.code = code;
-    this.signal.onMessage = (m) => this._onSignal(m);
+    this.signal.onMessage = (m) => {
+      const key = `lan:${m.id ?? m.from}`;
+      if (m.type === 'leave') this._lost(key); // the client page closed
+      else if (m.type === 'msg') this._onSignal(key, m.data || {}, (data) => this.signal.send({ to: m.from, data }), 'lan');
+      else if (m.type === 'error') { this.lanError = m.reason; this._changed(); }
+    };
     this.signal.onClose = () => { this.code = null; this.lanError = 'Relay connection lost'; this._changed(); };
-  }
-
-  _onSignal(m) {
-    if (m.type === 'join') this._connectLan(m.id);
-    else if (m.type === 'leave') this._drop(m.id);
-    else if (m.type === 'msg') this._onLanSignal(m.from, m.data || {});
-    else if (m.type === 'error') { this.lanError = m.reason; this._changed(); }
-  }
-
-  async _connectLan(id) {
-    const pc = new RTCPeerConnection(rtcConfig());
-    const ui = pc.createDataChannel('ui');
-    const input = pc.createDataChannel('input', { ordered: false, maxRetransmits: 0 });
-    const peer = {
-      pc, connected: false,
-      send: (text) => { if (ui.readyState === 'open') ui.send(text); },
-      close: () => { try { pc.close(); } catch (_) { /* already closed */ } },
-    };
-    this.peers.set(id, peer);
-    for (const track of this.stream.getTracks()) pc.addTrack(track, this.stream);
-    ui.onopen = () => this._welcome(id, peer);
-    input.onmessage = (e) => this._onInput(id, e.data);
-    pc.onicecandidate = (e) => { if (e.candidate) this.signal.send({ to: id, data: { t: 'ice', c: e.candidate } }); };
-    pc.onconnectionstatechange = () => {
-      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) this._drop(id);
-    };
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    this.signal.send({ to: id, data: { t: 'offer', sdp: pc.localDescription } });
-  }
-
-  async _onLanSignal(id, data) {
-    const peer = this.peers.get(id);
-    if (!peer || !peer.pc) return;
-    try {
-      if (data.t === 'answer') await peer.pc.setRemoteDescription(data.sdp);
-      else if (data.t === 'ice' && data.c) await peer.pc.addIceCandidate(data.c);
-    } catch (e) {
-      console.warn('[net] signaling error', e);
-    }
   }
 
   // ========================================================= Internet (PeerJS)
@@ -175,77 +162,124 @@ export class NetHost {
       }
     }
     if (!this.peer) return;
-    this.peer.on('connection', (conn) => this._onPeerConnection(conn));
+    // Each joining client opens one data connection, used only for signaling.
+    this.peer.on('connection', (conn) => {
+      const key = `p2p:${conn.connectionId}`;
+      conn.on('data', (d) => this._onSignal(key, d || {}, (data) => { if (conn.open) conn.send(data); }, 'internet'));
+      // The game link is separate: only a player who never finished connecting is lost here.
+      conn.on('close', () => { const p = this.players.get(key); if (p && !p.connected) this._lost(key); });
+    });
     // Keep the room reachable if the link to the PeerJS server blips.
     this.peer.on('disconnected', () => { if (this.peer && !this.peer.destroyed) this.peer.reconnect(); });
     this.peer.on('error', (e) => console.warn('[net] PeerJS', e && e.type));
   }
 
-  /**
-   * Clients open two data connections ('ui' reliable, 'input' fast) and the
-   * host then calls them with the video stream.
-   */
-  _onPeerConnection(conn) {
-    let entry = [...this.peers.entries()].find(([, p]) => p.remote === conn.peer);
-    if (!entry) {
-      const id = this._nextInternetId++;
-      const peer = {
-        remote: conn.peer, connected: false, ui: null, call: null,
-        send: (text) => { if (peer.ui && peer.ui.open) peer.ui.send(text); },
-        close: () => {
-          try { if (peer.ui) peer.ui.close(); } catch (_) { /* gone */ }
-          try { if (peer.input) peer.input.close(); } catch (_) { /* gone */ }
-          try { if (peer.call) peer.call.close(); } catch (_) { /* gone */ }
-        },
-      };
-      this.peers.set(id, peer);
-      entry = [id, peer];
+  // ================================================================= players
+
+  /** Signaling message from a client (same protocol on both routes). */
+  async _onSignal(key, data, sendSignal, route) {
+    if (data.t === 'hello') { this._connect(key, String(data.token || key), sendSignal, route); return; }
+    const p = this.players.get(key);
+    if (!p) return;
+    try {
+      if (data.t === 'answer') { await p.pc.setRemoteDescription(data.sdp); this._tuneVideo(p); }
+      else if (data.t === 'ice' && data.c) await p.pc.addIceCandidate(data.c);
+    } catch (e) {
+      console.warn('[net] signaling error', e);
     }
-    const [id, peer] = entry;
-    if (conn.label === 'input') {
-      peer.input = conn;
-      conn.on('data', (d) => this._onInput(id, typeof d === 'string' ? d : JSON.stringify(d)));
-    } else {
-      peer.ui = conn;
-      conn.on('open', () => {
-        peer.call = this.peer.call(conn.peer, this.stream); // send the game video
-        this._welcome(id, peer);
-        // PeerJS misses abrupt exits (closed tab, app killed): watch the WebRTC link too.
-        const pc = conn.peerConnection;
-        if (pc) pc.addEventListener('connectionstatechange', () => {
-          if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) this._drop(id);
-        });
-      });
-    }
-    conn.on('close', () => this._drop(id));
-    conn.on('error', () => this._drop(id));
   }
 
-  // ================================================================= shared
+  /** Build the game connection for a client and send it the offer. */
+  async _connect(key, token, sendSignal, route) {
+    if (this.players.has(key)) this._close(key);
+    let dev = this.devices.get(token);
+    if (dev === undefined) { dev = this._nextDev++; this.devices.set(token, dev); }
+    // A reconnecting player replaces their old, dead link.
+    for (const [k, other] of this.players) if (other.dev === dev) this._close(k);
+    this.lost.delete(dev);
+
+    const pc = new RTCPeerConnection(route === 'internet' ? INTERNET_RTC : rtcConfig());
+    const ui = pc.createDataChannel('ui', { ordered: true });
+    const input = pc.createDataChannel('input', { ordered: false, maxRetransmits: 0 });
+    const p = { key, dev, route, pc, ui, input, connected: false, last: {}, seq: -1, lostTimer: null };
+    this.players.set(key, p);
+    for (const track of this.stream.getTracks()) pc.addTrack(track, this.stream);
+
+    ui.onopen = () => this._welcome(p);
+    ui.onclose = () => this._lost(key);
+    input.onmessage = (e) => this._onInput(p, e.data);
+    pc.onicecandidate = (e) => { if (e.candidate) sendSignal({ t: 'ice', c: e.candidate }); };
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      clearTimeout(p.lostTimer);
+      if (s === 'failed' || s === 'closed') this._lost(key);
+      // 'disconnected' often heals by itself (Wi-Fi hiccup, mobile handover): wait a bit.
+      else if (s === 'disconnected') p.lostTimer = setTimeout(() => this._lost(key), ICE_LOST_MS);
+    };
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    sendSignal({ t: 'offer', sdp: pc.localDescription });
+    this._changed();
+  }
+
+  /** Cap the video for this player's route: smooth frame rate beats sharpness. */
+  async _tuneVideo(p) {
+    const budget = VIDEO[p.route];
+    const height = this.app.engine.renderer.domElement.height || budget.height;
+    for (const sender of p.pc.getSenders()) {
+      if (!sender.track || sender.track.kind !== 'video') continue;
+      const params = sender.getParameters();
+      if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+      Object.assign(params.encodings[0], {
+        maxBitrate: budget.bitrate,
+        maxFramerate: VIDEO_FPS,
+        scaleResolutionDownBy: Math.max(1, height / budget.height),
+      });
+      params.degradationPreference = 'maintain-framerate';
+      try { await sender.setParameters(params); } catch (e) { console.warn('[net] video tuning', e); }
+    }
+  }
 
   /** First message to a newly connected player: full UI snapshot. */
-  _welcome(id, peer) {
-    peer.connected = true;
-    // `n` is a friendly player number for the badge (ids are internal: LAN 1+, internet 1000+).
-    peer.send(JSON.stringify({ t: 'hello', id, n: this.connectedCount, ...this._snapshot() }));
+  _welcome(p) {
+    p.connected = true;
+    const snap = this._snapshot();
+    for (const k of Object.keys(snap)) p.last[k] = JSON.stringify(snap[k]);
+    p.ui.send(JSON.stringify({ t: 'hello', id: p.dev, n: p.dev, ...snap }));
     this._changed();
   }
 
-  _drop(id) {
-    const peer = this.peers.get(id);
-    if (!peer) return;
-    this.peers.delete(id);
-    peer.close();
-    const ctrl = this.app.input.controllers.get(`net${id}`);
-    if (ctrl) { ctrl.rawX = ctrl.rawY = 0; ctrl.rawA = ctrl.rawB = false; }
+  /** Close a link without treating its seat as lost (it is being replaced). */
+  _close(key) {
+    const p = this.players.get(key);
+    if (!p) return;
+    this.players.delete(key);
+    clearTimeout(p.lostTimer);
+    p.ui.onclose = null;
+    p.pc.onconnectionstatechange = null;
+    try { p.pc.close(); } catch (_) { /* already closed */ }
+  }
+
+  /** A link died: free its input and start the seat's grace period. */
+  _lost(key) {
+    const p = this.players.get(key);
+    if (!p) return;
+    this._close(key);
+    if (![...this.players.values()].some((o) => o.dev === p.dev)) {
+      this.lost.set(p.dev, performance.now());
+      const ctrl = this.app.input.controllers.get(`net${p.dev}`);
+      if (ctrl) { ctrl.rawX = ctrl.rawY = 0; ctrl.rawA = ctrl.rawB = false; }
+    }
     this._changed();
   }
 
-  /** Apply a remote controller packet {x, y, a, b} to its virtual Controller. */
-  _onInput(id, text) {
+  /** Apply a remote controller packet {s, x, y, a, b} to its virtual Controller. */
+  _onInput(p, text) {
     let s;
     try { s = JSON.parse(text); } catch (_) { return; }
-    const c = this.app.input.controller(`net${id}`);
+    // Packets may arrive out of order: never let an older one overwrite a newer one.
+    if (Number.isFinite(s.s)) { if (s.s <= p.seq) return; p.seq = s.s; }
+    const c = this.app.input.controller(`net${p.dev}`);
     const num = (v) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0);
     c.rawX = num(s.x); c.rawY = num(s.y);
     c.rawA = !!s.a; c.rawB = !!s.b;
@@ -258,16 +292,21 @@ export class NetHost {
     return { ov: [ov.className, ov.innerHTML], hud: [hud.className, hud.innerHTML], toasts };
   }
 
-  /** Send only the parts of the UI that changed since the last sync. */
+  /**
+   * Send each player only the UI parts that changed since what they last
+   * received. A congested link simply skips ticks and then gets the latest
+   * state, so slow connections never build up a backlog of old menus.
+   */
   _syncUI() {
     if (!this.connectedCount) return;
     const snap = this._snapshot();
-    const delta = {};
-    for (const k of Object.keys(snap)) {
-      const v = JSON.stringify(snap[k]);
-      if (v !== this._last[k]) { delta[k] = snap[k]; this._last[k] = v; }
+    const parts = Object.fromEntries(Object.keys(snap).map((k) => [k, JSON.stringify(snap[k])]));
+    for (const p of this.players.values()) {
+      if (!p.connected || p.ui.readyState !== 'open' || p.ui.bufferedAmount > UI_BACKLOG) continue;
+      const delta = {};
+      for (const k of Object.keys(parts)) if (parts[k] !== p.last[k]) { delta[k] = snap[k]; p.last[k] = parts[k]; }
+      if (Object.keys(delta).length) p.ui.send(JSON.stringify({ t: 'ui', ...delta }));
     }
-    if (Object.keys(delta).length) this.broadcast({ t: 'ui', ...delta });
   }
 
   _changed() { if (this.onChange) this.onChange(); }
@@ -276,7 +315,7 @@ export class NetHost {
 /** Create a PeerJS Peer with a fixed id; resolves once registered with the cloud server. */
 function openPeer(id) {
   return new Promise((resolve, reject) => {
-    const peer = new window.Peer(id, { debug: 0 });
+    const peer = new window.Peer(id, { debug: 0, config: INTERNET_RTC });
     const timeout = setTimeout(() => { peer.destroy(); reject(new Error('PeerJS server not reachable')); }, 10000);
     peer.once('open', () => { clearTimeout(timeout); resolve(peer); });
     peer.once('error', (e) => { clearTimeout(timeout); peer.destroy(); reject(e); });

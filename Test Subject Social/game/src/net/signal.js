@@ -1,5 +1,6 @@
 /**
- * signal.js — WebSocket connection to the signaling relay in serve.py.
+ * signal.js — WebSocket connection to the LAN signaling relay in serve.py,
+ * plus the WebRTC configurations for LAN and internet play.
  *
  * Online play works like "remote play": the HOST runs the whole game and
  * streams it; CLIENTS only watch and send controller input. The relay is
@@ -16,6 +17,19 @@ export function rtcConfig() {
   const stun = new URLSearchParams(location.search).get('stun');
   return { iceServers: stun ? [{ urls: stun.startsWith('stun:') ? stun : `stun:${stun}` }] : [] };
 }
+
+/**
+ * WebRTC configuration for internet play: Google's public STUN server plus
+ * the free TURN relays that come with PeerJS Cloud (used only when the two
+ * devices cannot reach each other directly).
+ */
+export const INTERNET_RTC = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+  ],
+  sdpSemantics: 'unified-plan',
+};
 
 /** Build the relay URL for a room on the current origin. */
 export function relayUrl(room, role) {

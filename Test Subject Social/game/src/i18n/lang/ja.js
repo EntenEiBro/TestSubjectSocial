@@ -507,6 +507,7 @@ export default {
     "Connecting…": "接続中…",
     "That code is not valid — it looks like K7QPXW or ABCD-EFGH.": "無効なコードです — K7QPXW や ABCD-EFGH の形式です。",
     "The online service is not reachable.": "オンラインサービスに接続できません。",
+    "RECONNECTING…": "再接続中…",
   },
   patterns: {
     subjectName: '被験者{1}',
