@@ -5,7 +5,7 @@
  * here simply writes stick/button values. Each minigame composes these into
  * its own `botThink()` routine.
  */
-import { rand } from './util.js';
+import { rand, random } from './rng.js';
 
 /** Bot skill profile: reaction delay + error rates. Randomized per bot. */
 export function makeBrain(difficulty = 0.6) {
@@ -66,7 +66,7 @@ export function nearest(actor, actors, filter = () => true) {
 /** Face a target and shove it if close enough (one-shot). */
 export function tryShove(actor, target, range = 1.3, chance = 1) {
   const d = Math.hypot(target.pos.x - actor.pos.x, target.pos.z - actor.pos.z);
-  if (d < range && Math.random() < chance) {
+  if (d < range && random() < chance) {
     actor.facing = Math.atan2(target.pos.x - actor.pos.x, target.pos.z - actor.pos.z);
     actor.ctrl.setButtons(actor.ctrl.rawA, true);
     return true;

@@ -16,10 +16,12 @@
 import * as THREE from 'three';
 import { Minigame, groupBy } from './base.js';
 import { Audio } from '../core/audio.js';
+import { Haptics } from '../core/haptics.js';
 import { hangingLamp } from '../core/engine.js';
 import { floor, block, stencil, hazardStrip, mesh, monitor } from '../core/environment.js';
 import { Tex, mat, canvasTexture, textTexture } from '../core/textures.js';
-import { rand, pick, clamp, lerp, damp } from '../core/util.js';
+import { clamp, lerp, damp } from '../core/util.js';
+import { rand, pick, random } from '../core/rng.js';
 
 const TOP = 40;                 // steps to escape
 const START = 20;               // everyone starts in the middle
@@ -192,7 +194,7 @@ export class DownEscalator extends Minigame {
       });
       for (const r of lane.rollers) r.g.rotation.x += r.dir * dt * (3 + rate * 2);
     }
-    this.pitLight.intensity = 4 + Math.sin(this.engine.time * 9) * 1.5;
+    this.pitLight.intensity = 4 + Math.sin(this.clock * 9) * 1.5;
   }
 
   /** Put a subject on the incline at its displayed height. */
@@ -220,8 +222,8 @@ export class DownEscalator extends Minigame {
       s.animate(dt, seat.climbT > 0 ? 6 : 0);
       if (seat.stun > 0) {
         p.torso.rotation.x = -0.35;
-        p.armL.rotation.x = -2.4 + Math.sin(this.engine.time * 40) * 0.5;
-        p.armR.rotation.x = -2.4 - Math.sin(this.engine.time * 40) * 0.5;
+        p.armL.rotation.x = -2.4 + Math.sin(this.clock * 40) * 0.5;
+        p.armR.rotation.x = -2.4 - Math.sin(this.clock * 40) * 0.5;
       } else if (seat.climbT <= 0) {
         // Hands on the rails.
         p.armL.rotation.z = lerp(p.armL.rotation.z, 0.35, damp(10, dt));
@@ -316,6 +318,7 @@ export class DownEscalator extends Minigame {
         seat.p -= 2; seat.stun = STUN; seat.streak = 0; seat.missteps++;
         seat.flash = 0.4;
         Audio.sfx('wrong', { vol: 0.7 });
+        Haptics.forPlayer(seat.player, 'error');
       }
       this._drawMonitor(seat.lane, 0, true);
     }
@@ -344,7 +347,7 @@ export class DownEscalator extends Minigame {
     root.rotation.x = -0.9 * k;
     seat.subject.pose = 'armsUp';
     seat.subject.animate(dt, 0);
-    if (Math.random() < 0.5) this.fx.sparks(new THREE.Vector3(seat.lane.x + rand(-0.5, 0.5), 0.5, Z0 + 0.8), { count: 3 });
+    if (random() < 0.5) this.fx.sparks(new THREE.Vector3(seat.lane.x + rand(-0.5, 0.5), 0.5, Z0 + 0.8), { count: 3 });
     if (seat.dying <= 0) {
       this.kill(seat, 'gib', { dir: new THREE.Vector3(0, 0, 1), force: 1.1 });
       this.fx.sparks(new THREE.Vector3(seat.lane.x, 0.5, Z0 + 0.8), { count: 20, speed: 8 });
@@ -374,7 +377,7 @@ export class DownEscalator extends Minigame {
     const interval = lerp(0.6, 0.28, b.difficulty);
     m.next = this.time + interval * rand(0.85, 1.2);
     const want = this.arrow(seat.idx);
-    const slip = Math.random() < b.error * 0.5;
+    const slip = random() < b.error * 0.5;
     seat.ctrl.tapDir(slip ? pick(DIRS.filter((d) => d !== want)) : want);
   }
 

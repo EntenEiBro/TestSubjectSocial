@@ -20,6 +20,21 @@ import { SonarCrossing } from './sonar.js';
 import { ForkliftFrenzy } from './forklift.js';
 import { SawbladeRicochet } from './sawblade.js';
 import { SmokeBreak } from './smokebreak.js';
+import { HotSeat } from './hotseat.js';
+import { LiveOrdnance } from './ordnance.js';
+import { DropZone } from './dropzone.js';
+import { TurbineHall } from './turbine.js';
+import { CableRun } from './cablerun.js';
+import { MotionSensor } from './motion.js';
+import { SpinCycle } from './spincycle.js';
+import { CrumbleFloor } from './crumble.js';
+import { QuickDraw } from './quickdraw.js';
+import { VentCrawl } from './ventcrawl.js';
+import { LaserSweep } from './lasersweep.js';
+import { ChairProtocol } from './chairs.js';
+import { WinchRace } from './winch.js';
+import { PressureTest } from './pressure.js';
+import { GlassPanels } from './glassbridge.js';
 
 export const REGISTRY = [
   SidearmAssembly,
@@ -37,6 +52,21 @@ export const REGISTRY = [
   ForkliftFrenzy,
   SawbladeRicochet,
   SmokeBreak,
+  HotSeat,
+  LiveOrdnance,
+  DropZone,
+  TurbineHall,
+  CableRun,
+  MotionSensor,
+  SpinCycle,
+  CrumbleFloor,
+  QuickDraw,
+  VentCrawl,
+  LaserSweep,
+  ChairProtocol,
+  WinchRace,
+  PressureTest,
+  GlassPanels,
 ];
 
 /** Look up a minigame class by id. */

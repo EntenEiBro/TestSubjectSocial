@@ -19,7 +19,8 @@ import { hangingLamp } from '../core/engine.js';
 import { block, stencil, mesh, monitor, drawSymbol, pipe } from '../core/environment.js';
 import { Tex, mat } from '../core/textures.js';
 import { steerTo } from '../core/ai.js';
-import { rand, lerp, clamp, pick, shuffle } from '../core/util.js';
+import { lerp, clamp, rand as crand } from '../core/util.js';
+import { rand, pick, shuffle, random } from '../core/rng.js';
 
 const COLS = 8, ROWS = 6;
 const TS = 1.6;                      // tile pitch (centre to centre)
@@ -48,7 +49,7 @@ function plateCanvas(sym, color, emissiveOnly) {
     ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1; ctx.strokeRect(7, 7, 114, 114);
     ctx.fillStyle = '#23251f';
     for (const [x, y] of [[12, 12], [116, 12], [12, 116], [116, 116]]) { ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); }
-    for (let i = 0; i < 6; i++) { ctx.fillStyle = `rgba(90,50,20,${rand(0.1, 0.25)})`; ctx.beginPath(); ctx.arc(rand(0, 128), rand(0, 128), rand(6, 20), 0, 7); ctx.fill(); }
+    for (let i = 0; i < 6; i++) { ctx.fillStyle = `rgba(90,50,20,${crand(0.1, 0.25)})`; ctx.beginPath(); ctx.arc(crand(0, 128), crand(0, 128), crand(6, 20), 0, 7); ctx.fill(); }
   }
   drawSymbol(ctx, sym, 64, 64, 34, color, 11);
   const t = new THREE.CanvasTexture(c);
@@ -344,13 +345,13 @@ export class SymbolFloor extends Minigame {
       }
     }
     // Slow sinister pulse on every symbol.
-    const pulse = 0.75 + Math.sin(performance.now() * 0.004) * 0.25;
+    const pulse = 0.75 + Math.sin((this.clock * 1000) * 0.004) * 0.25;
     for (const s of SYMBOLS) this.symMats[s].top.emissiveIntensity = pulse;
   }
 
   /** Repaint the monitors when their content changes. */
   _drawScreens() {
-    const blink = Math.floor(performance.now() / 250) % 2 === 0;
+    const blink = Math.floor((this.clock * 1000) / 250) % 2 === 0;
     let key, paint;
     if (this.phase === 'announce' || this.phase === 'drop') {
       const sec = this.phase === 'announce' ? Math.max(1, Math.ceil(this.phaseT)) : 0;
@@ -440,7 +441,7 @@ export class SymbolFloor extends Minigame {
     const elapsed = this.phaseLen - this.phaseT;
     if (this.phase === 'announce' && m.seenFor !== this.cycle) {
       m.seenFor = this.cycle;
-      m.delay = brain.reaction + (Math.random() < brain.error * 0.8 ? rand(0.6, 1.6) : 0);
+      m.delay = brain.reaction + (random() < brain.error * 0.8 ? rand(0.6, 1.6) : 0);
     }
     const known = this.phase === 'announce' && elapsed > (m.delay ?? 0) ? this.doomed
       : this.phase === 'drop' ? this.doomed : null;
@@ -459,7 +460,7 @@ export class SymbolFloor extends Minigame {
         let s = (dist.get(t) ?? Math.hypot(t.x - a.pos.x, t.z - a.pos.z) / TS) * (known ? 1 : 0.35);
         s += this._exposure(t) * 0.9;
         for (const o of this.arena.actors) if (o !== a && o.alive && Math.hypot(o.pos.x - t.x, o.pos.z - t.z) < 0.9) s += 1.1;
-        if (this.phase === 'collapse') s += Math.random() * 0.5;
+        if (this.phase === 'collapse') s += random() * 0.5;
         if (s < bs) { bs = s; best = t; }
       }
       m.target = best || here;
@@ -480,7 +481,7 @@ export class SymbolFloor extends Minigame {
         if (o === a || !o.alive || o.falling) continue;
         const d = Math.hypot(o.pos.x - a.pos.x, o.pos.z - a.pos.z);
         const ot = this.tileAt(o.pos.x, o.pos.z);
-        if (d < 1.35 && ot && ot.sym === known && Math.random() < brain.difficulty * dt * 5) {
+        if (d < 1.35 && ot && ot.sym === known && random() < brain.difficulty * dt * 5) {
           const dx = o.pos.x - a.pos.x, dz = o.pos.z - a.pos.z;
           a.ctrl.setMove(dx / d * 0.3, dz / d * 0.3);
           a.facing = Math.atan2(dx, dz);

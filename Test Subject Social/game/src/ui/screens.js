@@ -63,6 +63,102 @@ function menuNav(app, items, state, onChange) {
 
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
+// ===================================================================== INTRO
+
+/**
+ * Startup animation (about 6 s, always plays in full):
+ *   1. a facility terminal boots on a black screen,
+ *   2. the picture switches on like an old CRT and the intake room's lamps
+ *      clank on one by one while subjects drop onto the pedestals,
+ *   3. the title is stamped in letter by letter and slammed home.
+ */
+export function introScreen(app) {
+  const ov = app.overlay;
+  const status = (label, value, bad = false) => ({ text: `> ${label} ${'.'.repeat(Math.max(3, 24 - label.length))} `, value, bad });
+  const lines = [
+    { text: t('FACILITY TERMINAL v{v}', { v: '1.0.6' }) },
+    status(t('MAINS POWER'), 'OK'),
+    status(t('SUBJECT TRACKING'), 'OK'),
+    status(t('LETHAL HAZARDS'), t('ARMED')),
+    status(t('ETHICS COMMITTEE'), t('NOT FOUND'), true),
+    { text: `> ${t('BEGINNING INTAKE')}` },
+  ];
+  const letters = [...'TEST SUBJECT'].map((ch) => `<span>${ch === ' ' ? '&nbsp;' : ch}</span>`).join('');
+  ov.className = 'overlay clear';
+  ov.innerHTML = `<div class="intro">
+      <div class="intro-black"><div class="intro-term"></div></div>
+      <div class="intro-crt"></div>
+      <div class="intro-stripe top"></div><div class="intro-stripe bottom"></div>
+      <div class="intro-logo"><span class="l1">${letters}</span><span class="l2">SOCIAL</span></div>
+      <div class="intro-warn">${t('PARTICIPATION IS MANDATORY')}</div>
+    </div>`;
+  const root = ov.querySelector('.intro');
+  const term = ov.querySelector('.intro-term');
+  const $ = (sel) => ov.querySelector(sel);
+  // Empty pedestals and a far-away camera: both settle in during the intro.
+  app.backdrop.mode = 'title';
+  for (let i = 0; i < MAX_PLAYERS; i++) app.backdrop.setSlot(i, null);
+  app.backdrop.camera.position.set(0, 7, 21);
+  Audio.init(); // the desktop and phone apps may play sound right away; browsers wait for a tap
+  Audio.music('none');
+
+  // Terminal typing: total characters typed so far → visible text.
+  const CHARS_PER_S = 115;
+  const fullLength = lines.reduce((n, l) => n + l.text.length + (l.value ? l.value.length : 0), 0);
+  const renderTerm = (count) => {
+    let left = count, html = '';
+    for (const l of lines) {
+      if (left <= 0) break;
+      const shown = l.text.slice(0, left); left -= l.text.length;
+      let value = '';
+      if (l.value && left > 0) { value = l.value.slice(0, left); left -= l.value.length; }
+      html += `${esc(shown)}${value ? `<span class="${l.bad ? 'bad' : 'ok'}">${esc(value)}</span>` : ''}\n`;
+    }
+    term.innerHTML = `${html.replace(/\n$/, '')}<span class="cursor"></span>`;
+  };
+
+  const T_CRT = fullLength / CHARS_PER_S + 0.35;
+  const cues = [
+    [T_CRT, () => { $('.intro-crt').classList.add('on'); $('.intro-black').classList.add('off'); Audio.sfx('whoosh'); Audio.sfx('buzz'); }],
+    ...[0, 1, 2, 3].map((i) => [T_CRT + 0.45 + i * 0.26, () => {
+      app.backdrop.setSlot(i, new Player(i, 'bot').look, i + 1);
+      Audio.sfx('clank');
+    }]),
+    ...[...'TEST SUBJECT'].map((_, i) => [T_CRT + 1.6 + i * 0.05, () => {
+      ov.querySelectorAll('.intro-logo .l1 span')[i].classList.add('in');
+      Audio.sfx('chisel', { vol: 0.5 });
+    }]),
+    [T_CRT + 2.35, () => {
+      $('.intro-logo .l2').classList.add('in');
+      ov.querySelectorAll('.intro-stripe').forEach((s) => s.classList.add('in'));
+      root.classList.add('shake');
+      Audio.sfx('sting'); Audio.sfx('explode', { vol: 0.5 });
+      app.engine.shake(0.9);
+      if (app.touch || app.platform === 'android') Haptics.play('explosion');
+    }],
+    [T_CRT + 2.7, () => $('.intro-warn').classList.add('in')],
+    [T_CRT + 4.3, () => root.classList.add('out')],
+  ];
+  const END = T_CRT + 4.8;
+
+  return new Promise((resolve) => {
+    let time = 0, typed = 0, next = 0;
+    ov.onclick = null; // not skippable: taps and buttons do nothing until it ends
+    const off = app.onFrame((dt) => {
+      time += Math.min(dt, 0.1);
+      // Typing, with a soft tick every few characters.
+      const count = Math.min(fullLength, Math.floor(time * CHARS_PER_S));
+      if (count > typed) {
+        if (Math.floor(count / 3) > Math.floor(typed / 3)) Audio.sfx('tick');
+        typed = count;
+        renderTerm(count);
+      }
+      while (next < cues.length && time >= cues[next][0]) cues[next++][1]();
+      if (time >= END) { off(); resolve(); }
+    });
+  });
+}
+
 // ===================================================================== TITLE
 
 export function titleScreen(app) {
@@ -88,7 +184,7 @@ export function titleScreen(app) {
       <div class="hint">${pick('Tap an option', '{MOVE} choose · {A} confirm')}</div>
     </div>
     ${app.touch ? `<div class="gear-btn" data-tap="settings" title="${t('SETTINGS')}">⚙</div>` : ''}
-    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.5.2' })}</div>`;
+    <div class="corner-note">${t('FACILITY TERMINAL v{v} · ALL OUTCOMES FINAL', { v: '1.0.6' })}</div>`;
   app.backdrop.mode = 'title';
   // Populate the pedestals with random volunteers for atmosphere.
   for (let i = 0; i < MAX_PLAYERS; i++) app.backdrop.setSlot(i, new Player(i, 'bot').look, i + 1);
@@ -245,7 +341,7 @@ export function onlineScreen(app) {
   net.onChange = render;
   const html = `<div class="panel-screen wide"><h1>${t('HOST ONLINE')}</h1><div class="online-body"></div>
     <div>${tapBtn('play', t('CONTINUE TO INTAKE'), 'primary')}${tapBtn('back', t('BACK'))}</div>
-    <div class="hint">${tp('{A} continue to intake · {BACK} back (room stays open)')}</div></div>`;
+    <div class="hint">${tp('{A} continue to intake · {BACK} back (closes the room)')}</div></div>`;
   setTimeout(render, 0);
   const finish = (done, v) => { Audio.sfx(v ? 'select' : 'back'); net.onChange = null; done(v); };
   return runScreen(app, html, (dt, done) => {
@@ -480,11 +576,11 @@ export function lobbyScreen(app) {
 
 // =============================================================== MODE SELECT
 
-export function modeScreen(app) {
+export function modeScreen(app, registryCount = 30) {
   const items = [
-    { id: 'original', label: t('FULL PROGRAM'), desc: t('All 15 simulations in random order, with orientation and final judgement.') },
+    { id: 'original', label: t('FULL PROGRAM'), desc: t('{n} random simulations out of {total}, with orientation and final judgement.', { n: 15, total: registryCount }) },
     { id: 'arcade', label: t('QUICK SHIFT'), desc: t('10 random simulations. No orientation, no ceremony.') },
-    { id: 'custom', label: t('CUSTOM PLAYLIST'), desc: t('Pick exactly which simulations to run. Optional shuffle.') },
+    { id: 'custom', label: t('CUSTOM PLAYLIST'), desc: t('Pick exactly which simulations to run, in random order.') },
   ];
   const state = { index: 0 };
   const paint = () => app.overlay.querySelectorAll('.mode-card').forEach((el, i) => el.classList.toggle('sel', i === state.index));
@@ -504,26 +600,24 @@ export function modeScreen(app) {
   });
 }
 
-/** Toggle grid of simulations. Resolves with { ids, shuffle } or null. */
+/** Toggle grid of simulations. Resolves with { ids, shuffle: true } or null (always played in random order). */
 export function customScreen(app, registry) {
   const sel = new Set(app.lastCustom || registry.map((G) => G.meta.id));
-  let shuffle = app.lastShuffle ?? true;
   const state = { index: 0 };
   const cols = 5;
-  const total = registry.length + 2; // + shuffle + start
+  const total = registry.length + 1; // + start
   const render = () => {
     const gridEl = app.overlay.querySelector('.pl-grid');
     if (!gridEl) return;
     gridEl.innerHTML = registry.map((G, i) => `<div class="pl-card ${sel.has(G.meta.id) ? 'on' : ''} ${state.index === i ? 'sel' : ''}" data-tap="${i}"><span class="num">${String(i + 1).padStart(2, '0')}</span><b>${t(G.meta.title)}</b><small>${t(G.meta.category)}</small></div>`).join('');
-    app.overlay.querySelector('.pl-actions').innerHTML = `<div class="pl-btn ${state.index === registry.length ? 'sel' : ''}" data-tap="${registry.length}">${t('SHUFFLE')}: ${shuffle ? t('ON') : t('OFF')}</div><div class="pl-btn ${state.index === registry.length + 1 ? 'sel' : ''} ${sel.size ? '' : 'disabled'}" data-tap="${registry.length + 1}">${t('START')} (${sel.size})</div><div class="pl-btn" data-tap="back">${t('BACK')}</div>`;
+    app.overlay.querySelector('.pl-actions').innerHTML = `<div class="pl-btn ${state.index === registry.length ? 'sel' : ''} ${sel.size ? '' : 'disabled'}" data-tap="${registry.length}">${t('START')} (${sel.size})</div><div class="pl-btn" data-tap="back">${t('BACK')}</div>`;
   };
   const html = `<div class="panel-screen wide"><h1>${t('CUSTOM PLAYLIST')}</h1><div class="pl-grid"></div><div class="pl-actions"></div><div class="hint">${tp('{MOVE} move · {A} toggle · {BACK} back')}</div></div>`;
   setTimeout(render, 0);
-  /** Activate grid entry / shuffle / start at index i. Returns the result when starting. */
+  /** Activate grid entry / start at index i. Returns the result when starting. */
   const activate = (i) => {
     if (i < registry.length) { const id = registry[i].meta.id; if (sel.has(id)) sel.delete(id); else sel.add(id); Audio.sfx('click'); }
-    else if (i === registry.length) { shuffle = !shuffle; Audio.sfx('click'); }
-    else if (sel.size) { Audio.sfx('select'); app.lastCustom = [...sel]; app.lastShuffle = shuffle; return { ids: registry.map((G) => G.meta.id).filter((id) => sel.has(id)), shuffle }; }
+    else if (sel.size) { Audio.sfx('select'); app.lastCustom = [...sel]; return { ids: registry.map((G) => G.meta.id).filter((id) => sel.has(id)), shuffle: true }; }
     render();
     return null;
   };
@@ -588,6 +682,62 @@ export async function monologue(app, lines, { title = 'ORIENTATION' } = {}) {
 }
 
 // ============================================================ ROUND SCREENS
+
+// Animations on these screens are driven frame by frame from JavaScript
+// (inline styles), not CSS transitions: online players see the host's menus
+// as HTML snapshots, and only per-frame values survive being re-rendered.
+const easeOutCubic = (x) => 1 - (1 - Math.min(1, Math.max(0, x))) ** 3;
+const easeOutBack = (x) => { x = Math.min(1, Math.max(0, x)); const c = 1.7; return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2; };
+
+/**
+ * NEXT-SIMULATION ROULETTE: a reel of simulation cards spins, slows down and
+ * stops on the one that will be played next (decided by the program list).
+ */
+export function roulette(app, G, index, total, registry) {
+  const CARD_W = 30;            // card width in --u units (incl. gap)
+  const SPIN_S = 3.0;           // reel spin duration
+  const others = registry.filter((R) => R !== G);
+  // A long strip of random cards ending with the chosen one (cosmetic randomness).
+  const strip = [];
+  for (let i = 0; i < 26; i++) strip.push(others[Math.floor(Math.random() * others.length)] || G);
+  strip.push(G);
+  for (let i = 0; i < 3; i++) strip.push(others[Math.floor(Math.random() * others.length)] || G);
+  const target = 26;
+  const card = (R, i) => `<div class="rl-card${i === target ? ' rl-target' : ''}"><small>${t(R.meta.category).toUpperCase()}</small><b>${t(R.meta.title)}</b></div>`;
+  const html = `<div class="roulette">
+      <div class="rl-head">${t('SIMULATION {a} / {b}', { a: String(index + 1).padStart(2, '0'), b: String(total).padStart(2, '0') })}</div>
+      <h1 class="rl-title">${t('SELECTING NEXT SIMULATION')}</h1>
+      <div class="rl-window"><div class="rl-strip">${strip.map(card).join('')}</div><div class="rl-marker"></div></div>
+      <div class="rl-chosen"></div>
+    </div>`;
+  let time = 0, lastCard = -1, landed = false, stripEl = null, chosenEl = null;
+  // Reel offset (in --u) that centres card i in the window.
+  const offsetFor = (pos) => -(pos * CARD_W);
+  return runScreen(app, html, (dt, done) => {
+    time += Math.min(dt, 0.1);
+    stripEl = stripEl || app.overlay.querySelector('.rl-strip');
+    chosenEl = chosenEl || app.overlay.querySelector('.rl-chosen');
+    if (!stripEl) return;
+    const k = easeOutCubic(time / SPIN_S);
+    const pos = k * target;
+    stripEl.style.transform = `translateX(calc(var(--u) * ${offsetFor(pos).toFixed(2)}))`;
+    const passing = Math.round(pos);
+    if (passing !== lastCard) { lastCard = passing; if (!landed) Audio.sfx('tick'); }
+    if (!landed && time >= SPIN_S) {
+      landed = true;
+      app.overlay.querySelector('.rl-target').classList.add('on');
+      chosenEl.innerHTML = `<span>${t('SELECTED')}</span>`;
+      Audio.sfx('clank'); Audio.sfx('sting');
+      app.engine.shake(0.4);
+    }
+    if (landed) {
+      const s = easeOutBack((time - SPIN_S) / 0.35);
+      chosenEl.style.transform = `scale(${(2.2 - 1.2 * s).toFixed(3)})`;
+      chosenEl.style.opacity = String(Math.min(1, (time - SPIN_S) / 0.15));
+    }
+    if (time >= SPIN_S + 1.3) done();
+  }, { cls: 'card' });
+}
 
 /** Big stencilled title card for a simulation. */
 export async function titleCard(app, G, index, total) {
@@ -685,6 +835,102 @@ export function roundResults(app, G, results) {
   }, { cls: 'dim', tapAnywhere: true, onTap: (a, el, done) => { if (elapsed > 0.6) { Audio.sfx('click'); done(); } } });
 }
 
+/**
+ * After every round: the round's points are handed out one subject at a time
+ * (last place first, winner last), counted onto the standings bars, then the
+ * rows slide into the new order and the leader is crowned.
+ * `results` = [{player, place, points, died}] or null (skipped round).
+ */
+export function pointsScreen(app, players, results, { game = null, roundIndex = null, total = null } = {}) {
+  const ROW = 9; // row height in --u
+  const byPlayer = new Map((results || []).map((r) => [r.player, r]));
+  const gained = (p) => (byPlayer.get(p) ? byPlayer.get(p).points : 0);
+  const prevScore = (p) => p.score - gained(p);
+  // Stable sorts: previous standings first, then the order after this round.
+  const before = players.slice().sort((a, b) => prevScore(b) - prevScore(a) || a.slot - b.slot);
+  const after = before.slice().sort((a, b) => b.score - a.score);
+  const maxScore = Math.max(1, ...players.map((p) => p.score));
+  // Hand out points from the worst placement up to the winner (suspense).
+  const awards = (results || []).slice().sort((a, b) => b.place - a.place);
+  const STEP = 0.8, T_AWARD = 0.6, T_SORT = T_AWARD + awards.length * STEP + 0.3, T_DONE = T_SORT + 0.8;
+
+  const rowHtml = (p, i) => {
+    const r = byPlayer.get(p);
+    const badge = r ? `<span class="pt-place ${r.died ? 'died' : ''}">${r.died ? '✖ ' : ''}${ordinal(r.place)}</span>` : '<span class="pt-place"></span>';
+    return `<div class="pt-row" data-slot="${p.slot}" style="--pc:${p.color};top:calc(var(--u) * ${i * ROW})">
+      <span class="rank">${i + 1}</span><span class="nm">${p.name}</span>${badge}
+      <div class="bar"><div class="fill" style="width:${(prevScore(p) / maxScore) * 100}%"></div></div>
+      <span class="sc">${prevScore(p)}</span><span class="pt-gain">+${gained(p)}</span><span class="pt-crown"></span></div>`;
+  };
+  const prog = roundIndex !== null ? `<div class="prog">${t('{a} OF {b} SIMULATIONS COMPLETE', { a: roundIndex + 1, b: total })}</div>` : '';
+  const html = `<div class="panel-screen wide pt-screen"><h1>${t('SIMULATION REPORT')}</h1>${game ? `<h3 class="sub">${t(game.meta.title)}</h3>` : ''}${prog}
+    <div class="pt-board" style="height:calc(var(--u) * ${players.length * ROW})">${before.map(rowHtml).join('')}</div>
+    <div class="hint pt-hint" style="opacity:0">${pick('Tap to continue', '{A} continue')}</div></div>`;
+
+  let time = 0, step = -1, crowned = false, sorted = false, els = null, skipped = false;
+  const rowOf = (p) => els.rows.get(p.slot);
+  const finishAll = () => { skipped = true; time = Math.max(time, T_DONE); };
+  const sfx = (name) => { if (!skipped) Audio.sfx(name); }; // no sound burst when skipping ahead
+  return runScreen(app, html, (dt, done) => {
+    if (!els) {
+      const rows = new Map([...app.overlay.querySelectorAll('.pt-row')].map((el) => [+el.dataset.slot, el]));
+      if (!rows.size) return;
+      els = { rows, hint: app.overlay.querySelector('.pt-hint') };
+    }
+    time += Math.min(dt, 0.1);
+    // Rows slide in.
+    before.forEach((p, i) => {
+      const k = easeOutCubic((time - i * 0.08) / 0.45);
+      rowOf(p).style.opacity = String(k);
+      if (!sorted) rowOf(p).style.transform = `translateX(calc(var(--u) * ${((1 - k) * 12).toFixed(2)}))`;
+    });
+    // Awards, one subject at a time.
+    awards.forEach((r, i) => {
+      const t0 = T_AWARD + i * STEP, el = rowOf(r.player);
+      const local = time - t0;
+      const gain = el.querySelector('.pt-gain');
+      if (local < 0) { gain.style.opacity = '0'; return; }
+      if (i > step) {
+        step = i;
+        sfx(r.points === 0 ? 'back' : r.place === 1 ? 'select' : 'click');
+        el.querySelector('.pt-place').style.opacity = '1';
+      }
+      // "+N" pops in, then floats toward the score while the score counts up.
+      const pop = easeOutBack(local / 0.25);
+      const fly = easeOutCubic((local - 0.3) / 0.4);
+      gain.style.opacity = String(local < 0.3 ? 1 : 1 - fly);
+      gain.style.transform = `translateX(calc(var(--u) * ${(-fly * 6).toFixed(2)})) scale(${(0.4 + 0.6 * pop).toFixed(3)})`;
+      const shown = Math.round(prevScore(r.player) + r.points * easeOutCubic((local - 0.25) / 0.45));
+      const sc = el.querySelector('.sc');
+      if (sc.textContent !== String(shown)) { sc.textContent = String(shown); if (r.points) sfx('tick'); }
+      el.querySelector('.fill').style.width = `${(shown / maxScore) * 100}%`;
+      el.classList.toggle('pt-hot', local < 0.7 && r.points > 0);
+    });
+    // Re-sort into the new standings.
+    if (time >= T_SORT) {
+      sorted = true;
+      const k = easeOutCubic((time - T_SORT) / 0.6);
+      before.forEach((p, i) => {
+        const j = after.indexOf(p);
+        rowOf(p).style.transform = `translateY(calc(var(--u) * ${((j - i) * ROW * k).toFixed(2)}))`;
+        rowOf(p).querySelector('.rank').textContent = String((k > 0.5 ? j : i) + 1);
+        rowOf(p).querySelector('.sc').textContent = String(p.score);
+        rowOf(p).querySelector('.fill').style.width = `${(p.score / maxScore) * 100}%`;
+      });
+    }
+    if (time >= T_SORT + 0.6 && !crowned) {
+      crowned = true;
+      const top = after[0].score;
+      if (top > 0) for (const p of after.filter((q) => q.score === top)) { rowOf(p).classList.add('lead'); rowOf(p).querySelector('.pt-crown').textContent = '♛'; }
+      sfx('ding');
+    }
+    els.hint.style.opacity = time >= T_DONE ? '1' : '0';
+    // A press during the animation skips to the end; after it, continues.
+    if (app.input.joinPressed()) { if (time < T_DONE) finishAll(); else { Audio.sfx('click'); done(); return; } }
+    if (time > T_DONE + 6) done();
+  }, { cls: 'dim', tapAnywhere: true, onTap: (a, el, done) => { if (time < T_DONE) finishAll(); else { Audio.sfx('click'); done(); } } });
+}
+
 /** Cumulative standings with animated bars. */
 export function standings(app, players, { title = 'STANDINGS', roundIndex = null, total = null } = {}) {
   const max = Math.max(1, ...players.map((p) => p.score));
@@ -700,7 +946,13 @@ export function standings(app, players, { title = 'STANDINGS', roundIndex = null
   }, { cls: 'dim', tapAnywhere: true, onTap: (a, el, done) => { if (elapsed > 0.8) { Audio.sfx('click'); done(); } } });
 }
 
-/** End of program: winner released, the rest judged. */
+/**
+ * End of program — the winner ceremony:
+ *   1. lights out, drumroll, a spotlight sweeps across the pedestals…
+ *   2. …and stops on the winner: WINNER stamp, confetti, their pedestal rises,
+ *   3. everyone else sinks through the floor ("recycled"),
+ *   4. the final table appears.
+ */
 export function finalScreen(app, players, { ceremony = true } = {}) {
   const sorted = players.slice().sort((a, b) => b.score - a.score);
   const top = sorted[0].score;
@@ -709,21 +961,74 @@ export function finalScreen(app, players, { ceremony = true } = {}) {
   const verdict = winners.length > 1
     ? t('{names} — TIE. THE FACILITY WILL DECIDE LATER.', { names: winners.map((w) => w.name).join(' & ') })
     : t('{name} HAS PROVEN THEIR WORTH.', { name: winners[0].name });
-  const html = `<div class="panel-screen"><h1>${ceremony ? t('FINAL JUDGEMENT') : t('SHIFT COMPLETE')}</h1><h2 class="verdict" style="color:${winners[0].color}">${verdict}</h2><table class="res-table">${rows}</table>
-    ${ceremony ? `<p class="small-note">${t('All other subjects will be recycled.')}</p>` : ''}<div>${tapBtn('done', t('RETURN TO TERMINAL'), 'primary')}</div><div class="hint">${tp('{A} return to terminal')}</div></div>`;
-  Audio.sfx('win');
-  // Stage the verdict on the intake pedestals: winners celebrate, the rest cower.
-  app.backdrop.mode = 'title';
+  const html = `<div class="fin">
+      <div class="fin-drum">${t('AND THE SURVIVING SUBJECT IS…')}</div>
+      <div class="fin-win" style="--pc:${winners[0].color}"><span class="fin-label">${winners.length > 1 ? t('TIE') : t('WINNER')}</span><span class="fin-name">${winners.map((w) => w.name).join(' & ')}</span></div>
+      <div class="panel-screen fin-table" style="opacity:0"><h1>${ceremony ? t('FINAL JUDGEMENT') : t('SHIFT COMPLETE')}</h1><h2 class="verdict" style="color:${winners[0].color}">${verdict}</h2><table class="res-table">${rows}</table>
+        ${ceremony ? `<p class="small-note">${t('All other subjects will be recycled.')}</p>` : ''}<div>${tapBtn('done', t('RETURN TO TERMINAL'), 'primary')}</div><div class="hint">${tp('{A} return to terminal')}</div></div>
+    </div>`;
+  // Stage everyone on the intake pedestals, lights down.
+  const bd = app.backdrop;
+  bd.mode = 'title';
+  bd.resetCeremony();
+  const occupied = [];
   for (let i = 0; i < MAX_PLAYERS; i++) {
     const p = players.find((pl) => pl.slot === i);
-    app.backdrop.setSlot(i, p ? p.look : null, i + 1);
-    if (p) app.backdrop.setPose(i, winners.includes(p) ? 'armsUp' : 'cower');
+    bd.setSlot(i, p ? p.look : null, i + 1);
+    if (p) { occupied.push(i); bd.setPose(i, 'idle'); }
   }
-  let elapsed = 0;
+  const winSlots = winners.map((w) => w.slot);
+  bd.setSpotlight([]);
+  Audio.music('none');
+
+  const T_REVEAL = 3.2, T_SINK = T_REVEAL + 1.1, T_TABLE = T_REVEAL + 2.6;
+  let time = 0, revealed = false, sunk = false, tableShown = false, nextBeat = 0, sweep = 0, els = null;
   return runScreen(app, html, (dt, done) => {
-    elapsed += dt;
-    if (elapsed > 1.2 && app.input.joinPressed()) { Audio.sfx('select'); done(); }
-  }, { cls: 'dim', onTap: (a, el, done) => { if (elapsed > 1.2) { Audio.sfx('select'); done(); } } });
+    if (!els) {
+      els = { drum: app.overlay.querySelector('.fin-drum'), win: app.overlay.querySelector('.fin-win'), table: app.overlay.querySelector('.fin-table') };
+      if (!els.drum) { els = null; return; }
+    }
+    time += Math.min(dt, 0.1);
+    if (!revealed) {
+      // Drumroll that speeds up, while the spotlight hops from pedestal to pedestal (slowing down).
+      els.drum.style.opacity = String(Math.min(1, time / 0.4));
+      if (time >= nextBeat) { Audio.sfx('tick'); nextBeat = time + Math.max(0.045, 0.16 - time * 0.04); }
+      const hop = 0.12 + (time / T_REVEAL) ** 2 * 0.5;
+      sweep += dt / hop;
+      if (occupied.length) bd.setSpotlight([occupied[Math.floor(sweep) % occupied.length]]);
+      if (time >= T_REVEAL) {
+        revealed = true;
+        bd.setSpotlight(winSlots);
+        winSlots.forEach((s) => { bd.setPose(s, 'armsUp'); bd.setLift(s, 0.9); bd.burstConfetti(s); });
+        occupied.filter((s) => !winSlots.includes(s)).forEach((s) => bd.setPose(s, 'cower'));
+        Audio.sfx('sting'); Audio.sfx('win'); Audio.sfx('explode', { vol: 0.4 });
+        app.engine.shake(0.7);
+        if (app.touch || app.platform === 'android') Haptics.play('win');
+      }
+    }
+    if (revealed) {
+      // WINNER stamp: slams in big, settles.
+      const k = easeOutBack((time - T_REVEAL) / 0.4);
+      els.drum.style.opacity = String(Math.max(0, 1 - (time - T_REVEAL) / 0.3));
+      els.win.style.opacity = String(Math.min(1, (time - T_REVEAL) / 0.12));
+      const lift = tableShown ? easeOutCubic((time - T_TABLE) / 0.5) : 0;
+      // When the table appears the stamp moves up and shrinks to make room.
+      els.win.style.transform = `translate(-50%, calc(-50% - var(--u) * ${(lift * 19).toFixed(2)})) scale(${((3 - 2 * k) * (1 - 0.5 * lift)).toFixed(3)}) rotate(-3deg)`;
+    }
+    if (revealed && !sunk && time >= T_SINK) {
+      sunk = true;
+      // The rest are recycled: their pedestals sink through the floor.
+      occupied.filter((s) => !winSlots.includes(s)).forEach((s) => bd.setLift(s, -3.2));
+      if (occupied.length > winSlots.length) Audio.sfx('grind');
+    }
+    if (time >= T_TABLE) {
+      tableShown = true;
+      const k = easeOutCubic((time - T_TABLE) / 0.5);
+      els.table.style.opacity = String(k);
+      els.table.style.transform = `translateY(calc(var(--u) * ${((1 - k) * 8).toFixed(2)}))`;
+    }
+    if (time > T_TABLE + 0.6 && app.input.joinPressed()) { Audio.sfx('select'); bd.resetCeremony(); done(); }
+  }, { cls: 'clear', onTap: (a, el, done) => { if (time > T_TABLE + 0.6) { Audio.sfx('select'); bd.resetCeremony(); done(); } } });
 }
 
 /** Pause menu shown with ESC during a round. Resolves 'resume' | 'skip' | 'quit'. */

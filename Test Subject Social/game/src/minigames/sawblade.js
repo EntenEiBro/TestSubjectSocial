@@ -10,7 +10,8 @@ import { hangingLamp } from '../core/engine.js';
 import { floor, block, stencil, hazardStrip, mesh } from '../core/environment.js';
 import { Tex, mat } from '../core/textures.js';
 import { steerTo, nearest, wander } from '../core/ai.js';
-import { rand, Timer } from '../core/util.js';
+import { Timer } from '../core/util.js';
+import { rand, random } from '../core/rng.js';
 
 const HALF_W = 8, HALF_D = 5.5;     // inner pen half-extents
 const EDGE = 0.55;                   // hacksaw kill depth from wall
@@ -96,7 +97,7 @@ export class SawbladeRicochet extends Minigame {
     g.add(disc, hub);
     const angle = rand(0, Math.PI * 2);
     const speed = 6 + this.blades.length * 0.6;
-    const b = { g, x: rand(-HALF_W + 2, HALF_W - 2), z: Math.random() < 0.5 ? -HALF_D + 1.2 : HALF_D - 1.2, vx: Math.cos(angle) * speed, vz: Math.sin(angle) * speed, warm: 1.0 };
+    const b = { g, x: rand(-HALF_W + 2, HALF_W - 2), z: random() < 0.5 ? -HALF_D + 1.2 : HALF_D - 1.2, vx: Math.cos(angle) * speed, vz: Math.sin(angle) * speed, warm: 1.0 };
     g.position.set(b.x, 0.7, b.z);
     g.scale.setScalar(0.01);
     this.scene.add(g);
@@ -188,12 +189,12 @@ export class SawbladeRicochet extends Minigame {
     } else {
       // Hunt: approach a rival who is near a wall and shove them outward.
       const n = nearest(a, this.arena.actors);
-      if (n && n.dist < 4 && Math.random() < brain.difficulty) {
+      if (n && n.dist < 4 && random() < brain.difficulty) {
         const t = n.actor;
         // Approach from the inside so the shove sends them toward the wall.
         const out = new THREE.Vector3(t.pos.x, 0, t.pos.z).normalize();
         steerTo(a, t.pos.x - out.x * 0.9, t.pos.z - out.z * 0.9, { arrive: 0.3 });
-        if (n.dist < 1.3 && Math.random() < 0.15) { a.facing = Math.atan2(t.pos.x - a.pos.x, t.pos.z - a.pos.z); a.ctrl.setButtons(false, true); }
+        if (n.dist < 1.3 && random() < 0.15) { a.facing = Math.atan2(t.pos.x - a.pos.x, t.pos.z - a.pos.z); a.ctrl.setButtons(false, true); }
       } else wander(a, brain, dt, { minX: -HALF_W + 2, maxX: HALF_W - 2, minZ: -HALF_D + 2, maxZ: HALF_D - 2 });
     }
   }

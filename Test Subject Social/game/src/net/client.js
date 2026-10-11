@@ -8,13 +8,15 @@
  *             host by its 6-letter code and a PeerJS data connection carries
  *             the offer (runInternetClient).
  *
- * Either way the game itself arrives over one RTCPeerConnection built by the
- * host (video + 'ui' channel + unordered 'input' channel). The page does not
- * run the game: it shows the host's video stream, re-renders the mirrored
- * overlay/HUD HTML, replays sound events with the local synthesizer, and
- * sends this device's controls to the host about 60 times per second. Any
- * local device works (left keyboard, right keyboard, a gamepad, or the
- * on-screen touch controls on phones); they are merged into one controller.
+ * Either way everything arrives over one RTCPeerConnection built by the host.
+ * Rounds run on this device: the host sends the round's seed and then its
+ * lockstep input frames, and remoteround.js simulates and renders the round
+ * locally. Between rounds the page mirrors the host: its 3D backdrop as video,
+ * menus/HUD as HTML snapshots, sounds as event names for the local
+ * synthesizer. This device's controls go to the host about 120 times per
+ * second. Any local device works (left keyboard, right keyboard, a gamepad,
+ * or the on-screen touch controls on phones); they are merged into one
+ * controller.
  *
  * If the connection drops, the client reconnects by itself. A session token
  * tells the host it is the same player, so they get their seat back.
@@ -27,9 +29,12 @@ import { TouchControls, isTouchDevice } from '../ui/touch.js';
 import { Haptics } from '../core/haptics.js';
 import { t, setLanguage, LANGUAGES } from '../i18n/i18n.js';
 import { tp, initInputMode } from '../ui/prompts.js';
+import { RemoteRound } from './remoteround.js';
 
-const SEND_MS = 16;
+const SEND_MS = 8;            // controller sampling interval
 const HEARTBEAT_MS = 100;     // resend the controller state at least this often
+const REPEAT = 2;             // extra copies of every change (input packets may get lost)
+const PING_MS = 1000;
 const CONNECT_TIMEOUT = 20000;
 const ICE_LOST_MS = 8000;     // WebRTC 'disconnected' this long = connection lost
 const MAX_RETRIES = 30;
@@ -105,12 +110,13 @@ function createClientView(code) {
   }
 
   // Controller loop: merge every local device into one remote controller and
-  // send it on change plus a heartbeat. Packets carry a sequence number so the
-  // host can ignore ones that arrive late (the channel is unordered).
+  // send it on change (plus REPEAT copies) and as a heartbeat. Packets carry a
+  // sequence number so the host can ignore ones that arrive late (the channel
+  // is unordered), and A/B press counters so it can recover lost presses.
   let channel = null;
-  let seq = 0;
-  let last = '';
-  let lastSent = 0;
+  let seq = 0, last = '', lastSent = 0, repeat = 0;
+  let pressA = 0, pressB = 0, prevA = false, prevB = false;
+  let lastPing = 0;
   setInterval(() => {
     input.update();
     let x = 0, y = 0, a = false, b = false;
@@ -120,25 +126,77 @@ function createClientView(code) {
       a = a || c.a; b = b || c.b;
     }
     input.endFrame();
+    if (a && !prevA) pressA++;
+    if (b && !prevB) pressB++;
+    prevA = a; prevB = b;
     if (!channel || channel.readyState !== 'open') return;
-    const state = `${x.toFixed(2)},${y.toFixed(2)},${a},${b}`;
     const now = performance.now();
-    if (state === last && now - lastSent < HEARTBEAT_MS) return;
-    channel.send(JSON.stringify({ s: ++seq, x: +x.toFixed(2), y: +y.toFixed(2), a, b }));
+    if (now - lastPing > PING_MS) { lastPing = now; channel.send(JSON.stringify({ t: 'ping', c: now })); }
+    const state = `${x.toFixed(2)},${y.toFixed(2)},${a},${b}`;
+    if (state !== last) repeat = REPEAT + 1;
+    else if (repeat <= 0 && now - lastSent < HEARTBEAT_MS) return;
+    channel.send(JSON.stringify({ s: ++seq, x: +x.toFixed(2), y: +y.toFixed(2), a, b, pa: pressA, pb: pressB }));
+    repeat--;
     last = state; lastSent = now;
   }, SEND_MS);
+
+  // Connection quality indicator (top-left): ping and whether a relay server is in the way.
+  const netInfo = document.createElement('div');
+  netInfo.className = 'net-ping hidden';
+  stage.appendChild(netInfo);
+  let ping = null, relay = false;
+  const showPing = () => {
+    netInfo.classList.toggle('hidden', ping === null);
+    netInfo.classList.toggle('bad', ping !== null && ping > 150);
+    netInfo.textContent = ping === null ? '' : `PING ${ping} ms${relay ? ' · RELAY' : ''}`;
+  };
+
+  // UI parts arrive unordered: only apply a part if it is newer than what is shown.
+  const partSeq = { ov: -1, hud: -1, toasts: -1 };
+  const fresh = (k, s) => { if (s === undefined) return true; if (s <= partSeq[k]) return false; partSeq[k] = s; return true; };
+
+  // Rounds run on this device (lockstep): the host only sends seeds and input frames.
+  let simCh = null;
+  const round = new RemoteRound({
+    canvas, video, hudEl: hud, input, touch: isTouchDevice(),
+    send: (m) => { if (simCh && simCh.readyState === 'open') simCh.send(JSON.stringify(m)); },
+  });
+  window.__round = round; // handy for debugging in the console
 
   let badgeShown = false;
   return {
     status,
     setInputChannel(ch) { channel = ch; last = ''; },
+
+    /** Round control channel (reliable): build / rebuild / end the local copy of the round. */
+    setSimChannel(ch) {
+      simCh = ch;
+      if (!ch) { round.end(); return; } // connection lost: the local round can't continue
+      ch.onmessage = (e) => {
+        const m = JSON.parse(e.data);
+        if (m.t === 'round') round.start(m);
+        else if (m.t === 'prepare') round.prepare(m);
+        else if (m.t === 'fill') round.fill(m);
+        else if (m.t === 'end') round.end();
+      };
+    },
+    /** Lockstep input frames (unordered, each packet repeats the last few ticks). */
+    setFramesChannel(ch) { ch.onmessage = (e) => round.frames(JSON.parse(e.data)); },
     setStream(stream) { video.srcObject = stream; video.play().catch(() => {}); },
+    setRoute(isRelay) { relay = isRelay; showPing(); },
+    resetLink() { ping = null; partSeq.ov = partSeq.hud = partSeq.toasts = -1; showPing(); },
+
+    /** True once the host closed the room (no reconnecting). */
+    closed: false,
 
     /** Mirror host UI parts and audio. */
     applyUI(msg) {
-      if (msg.ov) { overlay.className = msg.ov[0]; overlay.innerHTML = msg.ov[1]; }
-      if (msg.hud) { hud.className = msg.hud[0]; hud.innerHTML = msg.hud[1]; }
-      if (msg.toasts !== undefined) {
+      if (msg.t === 'pong') { ping = Math.round(performance.now() - msg.c); showPing(); return; }
+      if (msg.t === 'closed') { this.closed = true; round.end(); return; }
+      if (msg.ov && fresh('ov', msg.s)) { overlay.className = msg.ov[0]; overlay.innerHTML = msg.ov[1]; }
+      // During a round this device draws its own HUD.
+      if (msg.hud && fresh('hud', msg.s) && !round.active) { hud.className = msg.hud[0]; hud.innerHTML = msg.hud[1]; }
+      if (msg.toasts !== undefined && fresh('toasts', msg.s)) {
         stage.querySelectorAll(':scope > .toast').forEach((el) => el.remove());
         if (msg.toasts) stage.insertAdjacentHTML('beforeend', msg.toasts);
       }
@@ -166,11 +224,26 @@ function createClientView(code) {
 function connectOnce(view, transport, rtc, token) {
   return new Promise((resolve, reject) => {
     let finished = false, connected = false, pc = null, link = null, lostTimer = null;
+    view.resetLink(); // the host numbers UI updates per connection
+    // Every few seconds: is this link going through a TURN relay? (shown next to the ping)
+    const routeTimer = setInterval(async () => {
+      if (!connected) return;
+      try {
+        const stats = await pc.getStats();
+        const kinds = {};
+        let pair = null;
+        stats.forEach((r) => { if (r.type === 'local-candidate' || r.type === 'remote-candidate') kinds[r.id] = r.candidateType; });
+        stats.forEach((r) => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected)) pair = r; });
+        if (pair) view.setRoute(kinds[pair.localCandidateId] === 'relay' || kinds[pair.remoteCandidateId] === 'relay');
+      } catch (_) { /* closed */ }
+    }, 2000);
     const finish = (err) => {
       if (finished) return;
       finished = true;
+      clearInterval(routeTimer);
       clearTimeout(timeout); clearTimeout(lostTimer);
       view.setInputChannel(null);
+      view.setSimChannel(null);
       try { if (pc) pc.close(); } catch (_) { /* closed */ }
       try { if (link) link.close(); } catch (_) { /* closed */ }
       window.removeEventListener('pagehide', onLeave);
@@ -191,6 +264,8 @@ function connectOnce(view, transport, rtc, token) {
     pc.ondatachannel = (e) => {
       const ch = e.channel;
       if (ch.label === 'input') { ch.onopen = () => view.setInputChannel(ch); if (ch.readyState === 'open') view.setInputChannel(ch); }
+      if (ch.label === 'sim') view.setSimChannel(ch);
+      if (ch.label === 'frames') view.setFramesChannel(ch);
       if (ch.label === 'ui') {
         ch.onmessage = (m) => view.applyUI(JSON.parse(m.data));
         ch.onopen = () => { connected = true; clearTimeout(timeout); };
@@ -238,15 +313,19 @@ async function runSession(view, code, transport, rtc) {
   const token = sessionToken(code);
   view.status(t('CONNECTING'), t('Contacting the facility…'));
   let everConnected = false;
+  let goneCount = 0; // "room does not exist" answers in a row after we had been connected
   for (let failures = 0; failures < MAX_RETRIES;) {
     try {
       const { connected } = await connectOnce(view, transport, rtc, token);
-      if (connected) { everConnected = true; failures = 0; } else failures++;
+      if (connected) { everConnected = true; failures = 0; goneCount = 0; } else failures++;
     } catch (e) {
-      // "Room does not exist" right away is final; after a drop the host may just be reconnecting.
+      // "Room does not exist" right away is final; after a drop the host may just be
+      // reconnecting to the server — but three times in a row means the room was closed.
       if (!everConnected) { view.status(t('NO CONNECTION'), e.message); return; }
+      if (++goneCount >= 3) view.closed = true;
       failures++;
     }
+    if (view.closed) { view.status(t('ROOM CLOSED'), t('The host closed the room.')); return; }
     view.status(t('RECONNECTING…'), t('The connection to the host was lost.'));
     await sleep(Math.min(5000, 1000 * Math.max(1, failures)));
   }

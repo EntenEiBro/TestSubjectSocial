@@ -4,7 +4,7 @@
  * The App owns the long-lived systems (renderer, input, HUD, menu backdrop,
  * settings, roster) and runs the linear menu flow:
  *
- *   title → lobby → program select → program (rounds) → final → title …
+ *   title → lobby → program select → program (rounds) → final → lobby …
  *
  * Debug / quick-launch URL parameters:
  *   ?game=<id>        jump straight into one simulation (see minigames/index.js)
@@ -28,6 +28,7 @@ import { playProgram, playRound } from './game/flow.js';
 import { REGISTRY, findGame } from './minigames/index.js';
 import { Commendations } from './game/achievements.js';
 import { NetHost } from './net/host.js';
+import { LockstepHost } from './net/lockstep.js';
 import { runClient, runInternetClient } from './net/client.js';
 import { TouchControls, isTouchDevice } from './ui/touch.js';
 import { Haptics } from './core/haptics.js';
@@ -58,6 +59,7 @@ class App {
     this.overlay = document.getElementById('overlay');
     this.backdrop = new Backdrop();
     this.net = new NetHost(this); // online hosting (idle until started from the menu)
+    this.lockstep = new LockstepHost(this); // runs online rounds in sync with the clients
     this.players = [];
     this.game = null;
     this.quick = false;
@@ -109,10 +111,12 @@ class App {
   pauseSignal() { return new Promise((res) => this._pauseWaiters.push(res)); }
 
   frame(dt) {
+    this.net.pump(); // remote players' input changes, one per frame
     this.input.update();
     for (const fn of [...this._frameHandlers]) fn(dt);
     if (this.game && !this.paused) {
-      this.game.tick(dt);
+      // Online rounds advance in fixed lockstep ticks (also sent to the clients).
+      if (this.game.lockstep) this.lockstep.update(dt); else this.game.tick(dt);
       const pausePressed = this.input.keyPressed('Escape') || this.input.actionPressed('pause')
         || [0, 1, 2, 3].some((i) => this.input.padPressed(i, 9));
       if (this.game && this.game.state === 'play' && pausePressed) this.openPause();
@@ -139,7 +143,9 @@ class App {
     this.engine.timeScale = 0;
     this.input.endFrame(); // consume the ESC press
     if (this.touch) this.touch.setContext(null); // let the pause menu be tapped
+    Haptics.roundActive = false; // the pause menu gets normal menu feedback
     const choice = await S.pauseScreen(this);
+    Haptics.roundActive = choice === 'resume';
     this.paused = false;
     this.engine.timeScale = 1;
     if (this.touch && choice === 'resume') this.touch.setContext('play');
@@ -178,13 +184,15 @@ class App {
   async run() {
     const q = queryParams();
     if (q.has('game')) return this.quickLaunch(q);
+    await S.introScreen(this); // startup animation, once per launch
     for (;;) {
       const choice = await S.titleScreen(this);
       if (choice === 'options') { await S.optionsScreen(this); continue; }
       if (choice === 'manual') { await S.manualScreen(this, REGISTRY); continue; }
       if (choice === 'credits') { await S.creditsScreen(this); continue; }
       if (choice === 'commendations') { await S.commendationsScreen(this, REGISTRY); continue; }
-      if (choice === 'online' && (await S.onlineScreen(this)) !== 'play') continue;
+      // HOST ONLINE: BACK returns to the title and closes the room.
+      if (choice === 'online' && (await S.onlineScreen(this)) !== 'play') { this.net.stop(); continue; }
       if (choice === 'quit') { this.desktop.quit(); return; }
       if (choice === 'join') { await S.joinScreen(this); continue; }
       // play
@@ -193,15 +201,18 @@ class App {
         if (!roster) break;
         let mode = null;
         for (;;) {
-          const m = await S.modeScreen(this);
+          const m = await S.modeScreen(this, REGISTRY.length);
           if (!m) break;
           if (m === 'custom') { const c = await S.customScreen(this, REGISTRY); if (!c) continue; mode = c; } else mode = m;
           break;
         }
         if (!mode) continue;
+        // Finished or aborted: back to Subject Intake with every seat kept, so
+        // online players can ready up again (BACK there returns to the title).
         await playProgram(this, mode);
-        break;
       }
+      // Back on the title screen: a hosted room closes.
+      this.net.stop();
     }
   }
 
@@ -221,6 +232,7 @@ class App {
     do {
       this.players.forEach((p) => p.resetStats());
       await playRound(this, G, 0, 1);
+      await S.pointsScreen(this, this.players, this.lastResults, { game: G });
     } while (q.has('loop'));
     await S.standings(this, this.players);
   }

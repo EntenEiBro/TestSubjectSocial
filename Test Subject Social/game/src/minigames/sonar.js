@@ -24,7 +24,8 @@ import { Audio } from '../core/audio.js';
 import { floor, block, mesh, stencil, hazardStrip } from '../core/environment.js';
 import { Tex, mat, glow, textTexture } from '../core/textures.js';
 import { steerTo } from '../core/ai.js';
-import { rand, clamp, lerp } from '../core/util.js';
+import { clamp, lerp } from '../core/util.js';
+import { rand, random } from '../core/rng.js';
 
 const HW = 7;                 // field half-width
 const START_Z = 0, FINISH_Z = -40;
@@ -286,7 +287,7 @@ export class SonarCrossing extends Minigame {
       for (const s of this.seats) {
         if (!s.isBot) continue;
         s.brain.memory.known = s.brain.memory.known || new Set();
-        if (s === seat || Math.random() < 0.55 + 0.45 * s.brain.difficulty) s.brain.memory.known.add(m);
+        if (s === seat || random() < 0.55 + 0.45 * s.brain.difficulty) s.brain.memory.known.add(m);
       }
     }
   }
@@ -327,7 +328,7 @@ export class SonarCrossing extends Minigame {
   }
 
   _animateBeacons() {
-    const on = Math.floor(this.engine.time * 4) % 2 === 0;
+    const on = Math.floor(this.clock * 4) % 2 === 0;
     this.beacons[0].color.setHex(on ? 0xff9a1a : 0x3a1a04);
     this.beacons[1].color.setHex(on ? 0x3a1a04 : 0xff9a1a);
   }
@@ -383,7 +384,7 @@ export class SonarCrossing extends Minigame {
       if (H.smokeT <= 0) {
         H.smokeT = 0.18;
         for (const s of this.stacks) this.fx.smoke(s.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.9, 0)), { color: 0x2a2a2a, size: 0.3, life: 1.4, rise: 2 });
-        if (Math.random() < 0.3) Audio.sfx('engine', { vol: 0.6 });
+        if (random() < 0.3) Audio.sfx('engine', { vol: 0.6 });
       }
     } else H.drum.rotation.x -= dt * 2;
     H.g.position.z = H.z;
@@ -489,7 +490,7 @@ export class SonarCrossing extends Minigame {
       const ex = pos.x + dx * 1.6, ez = pos.z + dz * 1.6;
       let clear = 4;
       for (const m of known) if (m.alive) clear = Math.min(clear, Math.hypot(m.x - ex, m.z - ez));
-      const score = -dz * 2 + clear * 0.6 + Math.random() * 0.2;
+      const score = -dz * 2 + clear * 0.6 + random() * 0.2;
       if (score > bestScore) { bestScore = score; best = { x: dx, z: dz }; }
     }
     return best;
@@ -512,7 +513,7 @@ export class SonarCrossing extends Minigame {
     const interval = lerp(6.5, 2.8, brain.difficulty);
     if (mem.lastZ === undefined) {
       mem.lastZ = a.pos.z;
-      mem.travel = Math.random() < 0.4 + brain.difficulty * 0.6 ? interval + 1 : 0; // careful bots listen before the first step
+      mem.travel = random() < 0.4 + brain.difficulty * 0.6 ? interval + 1 : 0; // careful bots listen before the first step
     }
     mem.travel += Math.abs(a.pos.z - mem.lastZ);
     mem.lastZ = a.pos.z;
@@ -572,7 +573,7 @@ export class SonarCrossing extends Minigame {
     a.ctrl.setMove((dirX / len) * care, (dirZ / len) * care);
 
     // Opportunistic shove: a rival standing next to a known mine.
-    if (Math.random() < 0.04 * brain.difficulty) {
+    if (random() < 0.04 * brain.difficulty) {
       for (const o of this.seats) {
         if (o === seat || !o.alive || o.finished) continue;
         const dx = o.actor.pos.x - a.pos.x, dz = o.actor.pos.z - a.pos.z, d = Math.hypot(dx, dz);

@@ -27,7 +27,8 @@ import { hangingLamp } from '../core/engine.js';
 import { floor, block, mesh, pipe, stencil, hazardStrip } from '../core/environment.js';
 import { Tex, mat, glow } from '../core/textures.js';
 import { steerTo } from '../core/ai.js';
-import { rand, pick, clamp, angleDiff } from '../core/util.js';
+import { clamp, angleDiff } from '../core/util.js';
+import { rand, pick, random } from '../core/rng.js';
 
 const PH = 1.6;                  // platform half-size (3.2 x 3.2)
 const SPACING = 5.0;             // centre-to-centre distance between neighbours
@@ -150,7 +151,7 @@ export class PistonPress extends Minigame {
 
   preview(dt) {
     for (const s of this.seats) s.subject.animate(dt, 0);
-    for (const P of this.plats) P.piston.position.y = PISTON_REST + Math.sin(this.engine.time * 1.3 + P.x) * 0.15;
+    for (const P of this.plats) P.piston.position.y = PISTON_REST + Math.sin(this.clock * 1.3 + P.x) * 0.15;
   }
 
   // -------------------------------------------------------------------- junk
@@ -541,7 +542,7 @@ export class PistonPress extends Minigame {
       const lx = j.pos.x + j.vel.x * tLand, lz = j.pos.z + j.vel.z * tLand;
       if (Math.hypot(lx - a.pos.x, lz - a.pos.z) < 1.1) { dodge = { x: a.pos.x - lx, z: a.pos.z - lz, vx: j.vel.x, vz: j.vel.z }; break; }
     }
-    if (dodge && (mem.dodging || Math.random() < brain.difficulty * 0.25)) {
+    if (dodge && (mem.dodging || random() < brain.difficulty * 0.25)) {
       mem.dodging = true;
       // Sidestep perpendicular to the incoming path, toward the platform centre.
       let px = -dodge.vz, pz = dodge.vx;

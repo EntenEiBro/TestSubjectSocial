@@ -10,6 +10,7 @@
  */
 import * as THREE from 'three';
 import { Audio } from './audio.js';
+import { Haptics } from './haptics.js';
 import { clamp, damp } from './util.js';
 
 /** One avatar living in an arena. */
@@ -28,6 +29,7 @@ export class ArenaActor {
     this.alive = true;
     this.frozen = false;   // ignore input (cutscenes, stunned, seated...)
     this.stun = 0;
+    this.stunSeen = 0;     // stun at the end of the last step (to notice new hits for haptics)
     this.shoveCd = 0;
     this.y = 0;            // vertical offset (falling into pits)
     this.vy = 0;
@@ -96,6 +98,10 @@ export class Arena {
     }
     this._separate();
     for (const a of this.actors) {
+      // Newly stunned since the last step (shoved, blasted, run over…): the
+      // player of this subject feels it — nobody else's phone does.
+      if (a.stun > a.stunSeen + 1e-6) Haptics.forPlayer(a.player, a.stun > 0.5 ? 'heavy' : 'hit');
+      a.stunSeen = a.stun;
       if (!a.alive) continue;
       if (!a.falling) this._collide(a);
       a.subject.root.position.set(a.pos.x, a.y, a.pos.z);
@@ -122,7 +128,7 @@ export class Arena {
       hit = true;
       if (this.onShove) this.onShove(a, b);
     }
-    if (hit) Audio.sfx('shove');
+    if (hit) { Audio.sfx('shove'); Haptics.forPlayer(a.player, 'click'); } // your shove landed
   }
 
   _separate() {

@@ -18,10 +18,12 @@
 import * as THREE from 'three';
 import { Minigame, rankByScore } from './base.js';
 import { Audio } from '../core/audio.js';
+import { Haptics } from '../core/haptics.js';
 import { hangingLamp } from '../core/engine.js';
 import { floor, block, stencil, hazardStrip, mesh, playerRing } from '../core/environment.js';
 import { Tex, mat, glow, textTexture } from '../core/textures.js';
-import { rand, clamp, angleDiff, dist2D, damp } from '../core/util.js';
+import { clamp, angleDiff, dist2D, damp } from '../core/util.js';
+import { rand, random } from '../core/rng.js';
 
 const HALF_W = 11, MIN_Z = -7, MAX_Z = 6.5;
 const ROUND_TIME = 45;
@@ -147,7 +149,7 @@ export class ForkliftFrenzy extends Minigame {
       for (const dx of [-2.2, 2.2]) block(scene, rx + dx, 2, MIN_Z - 1.0, 0.12, 4, 0.9, rackMat);
       for (const y of [0.15, 1.5, 2.85]) {
         block(scene, rx, y, MIN_Z - 1.0, 4.5, 0.1, 0.9, mat(0x8a5a2a, Tex.wood()));
-        for (let k = -1; k <= 1; k++) if (Math.random() < 0.7) scene.add(mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), crateMat, rx + k * 1.3, y + 0.45, MIN_Z - 1.0));
+        for (let k = -1; k <= 1; k++) if (random() < 0.7) scene.add(mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), crateMat, rx + k * 1.3, y + 0.45, MIN_Z - 1.0));
       }
     }
   }
@@ -343,6 +345,8 @@ export class ForkliftFrenzy extends Minigame {
       o.px += (dx / d) * 5.5; o.pz += (dz / d) * 5.5;
       o.stun = 0.35;
       o.v *= 0.3;
+      Haptics.forPlayer(o.seat.player, 'hit');
+      Haptics.forPlayer(fl.seat.player, 'click');
       this._spill(o);
       Audio.sfx('shove');
     }
@@ -467,7 +471,7 @@ export class ForkliftFrenzy extends Minigame {
     for (const o of this.forklifts) {
       if (o === fl || o.dead || !o.carry || fl.hornCd > 0) continue;
       const dx = o.x - fl.x, dz = o.z - fl.z, d = Math.hypot(dx, dz);
-      if (d < 2.6 && (dx * Math.sin(fl.h) + dz * Math.cos(fl.h)) / d > 0.5 && Math.random() < brain.difficulty * dt * 3) { c.setButtons(false, true); break; }
+      if (d < 2.6 && (dx * Math.sin(fl.h) + dz * Math.cos(fl.h)) / d > 0.5 && random() < brain.difficulty * dt * 3) { c.setButtons(false, true); break; }
     }
 
     const zone = seat.zone;
@@ -486,7 +490,7 @@ export class ForkliftFrenzy extends Minigame {
       // Late in the shift, a bot that isn't clearly ahead turns to theft.
       const leader = Math.max(...this.seats.filter((s) => s !== seat).map((s) => s.score));
       const desperate = this.time > 25 && seat.score <= leader + 1;
-      const thief = desperate || Math.random() < 0.2 + 0.3 * brain.difficulty;
+      const thief = desperate || random() < 0.2 + 0.3 * brain.difficulty;
       let best = null, bc = Infinity;
       for (const cr of this.crates) {
         if (!valid(cr)) continue;

@@ -24,7 +24,8 @@ import { hangingLamp } from '../core/engine.js';
 import { floor, block, stencil, hazardStrip, mesh, crate, pipe } from '../core/environment.js';
 import { Tex, mat, glow, textTexture, canvasTexture } from '../core/textures.js';
 import { steerTo } from '../core/ai.js';
-import { rand, shuffle, clamp, dist2D } from '../core/util.js';
+import { clamp, dist2D } from '../core/util.js';
+import { rand, shuffle, random } from '../core/rng.js';
 
 const HALF_W = 9.5;            // pen half-width
 const MIN_Z = -5.4;            // walkable back edge (benches stand against it)
@@ -609,8 +610,8 @@ export class SidearmAssembly extends Minigame {
       const ra = r.actor, dx = a.pos.x - ra.pos.x, dz = a.pos.z - ra.pos.z, d = Math.hypot(dx, dz);
       if (d > 14 || d < 1e-3) continue;
       const aimed = (dx * Math.sin(ra.facing) + dz * Math.cos(ra.facing)) / d > 0.97;
-      if (aimed && this.arena.clearLine(ra.pos, a.pos, 0.2) && Math.random() < brain.difficulty * dt * 5) {
-        const side = Math.random() < 0.5 ? 1 : -1;
+      if (aimed && this.arena.clearLine(ra.pos, a.pos, 0.2) && random() < brain.difficulty * dt * 5) {
+        const side = random() < 0.5 ? 1 : -1;
         m.dodgeX = (-dz / d) * side; m.dodgeZ = (dx / d) * side; m.dodgeT = rand(0.3, 0.6);
         return;
       }
@@ -629,7 +630,7 @@ export class SidearmAssembly extends Minigame {
     for (const r of this.aliveSeats) {
       if (r === seat || !r.held) continue;
       const d = dist2D(a.pos, r.actor.pos);
-      if (d < 1.3 && Math.random() < brain.difficulty * dt * 3) {
+      if (d < 1.3 && random() < brain.difficulty * dt * 3) {
         a.facing = Math.atan2(r.actor.pos.x - a.pos.x, r.actor.pos.z - a.pos.z);
         c.setButtons(false, true);
         return;
@@ -671,7 +672,7 @@ export class SidearmAssembly extends Minigame {
       const moved = m.lastPos ? Math.hypot(a.pos.x - m.lastPos.x, a.pos.z - m.lastPos.z) : 1;
       if (moved < 0.25 && d > 0.6) {
         const dx = x - a.pos.x, dz = z - a.pos.z, l = Math.hypot(dx, dz) || 1;
-        const side = Math.random() < 0.5 ? 1 : -1;
+        const side = random() < 0.5 ? 1 : -1;
         m.detourX = (-dz / l) * side; m.detourZ = (dx / l) * side;
         m.detourT = rand(0.35, 0.7);
       }

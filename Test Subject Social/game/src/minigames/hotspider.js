@@ -24,7 +24,8 @@ import { hangingLamp } from '../core/engine.js';
 import { floor, mesh, pipe, stencil } from '../core/environment.js';
 import { Tex, mat, glow } from '../core/textures.js';
 import { steerTo, nearest, wander } from '../core/ai.js';
-import { rand, pick, angleDiff } from '../core/util.js';
+import { angleDiff } from '../core/util.js';
+import { rand, pick, random } from '../core/rng.js';
 
 const R = 7.5;               // arena radius
 const THROW_SPEED = 12;      // horizontal throw speed
@@ -412,7 +413,7 @@ export class HotSpider extends Minigame {
       const r = Math.hypot(a.pos.x, a.pos.z), max = R - a.radius;
       if (r > max) { a.pos.x *= max / r; a.pos.z *= max / r; a.subject.root.position.x = a.pos.x; a.subject.root.position.z = a.pos.z; }
     }
-    this.heat.intensity = 22 + Math.sin(this.time * 3) * 4 + Math.random() * 3;
+    this.heat.intensity = 22 + Math.sin(this.time * 3) * 4 + random() * 3;
     if (playing) this._updateSpider(dt);
     else if (this.spider.state === 'attached' && this.spider.carrier) {
       // keep the spider glued to the winner while the round wraps up
@@ -482,7 +483,7 @@ export class HotSpider extends Minigame {
           }
         }
         // Panic shove: carrier right on top of us.
-        if (sp.state === 'attached' && d < 1.25 && Math.random() < 0.08 + brain.difficulty * 0.1) {
+        if (sp.state === 'attached' && d < 1.25 && random() < 0.08 + brain.difficulty * 0.1) {
           a.ctrl.setMove(-dx / d * 0.3, -dz / d * 0.3);
           wantB = true;
           fx = fz = 0;

@@ -18,7 +18,8 @@ import { Audio } from '../core/audio.js';
 import { hangingLamp } from '../core/engine.js';
 import { floor, block, stencil, hazardStrip, mesh, pipe } from '../core/environment.js';
 import { Tex, mat, glow, canvasTexture } from '../core/textures.js';
-import { rand, randInt, clamp, lerp, damp } from '../core/util.js';
+import { clamp, lerp, damp, rand as crand, randInt as crandInt } from '../core/util.js';
+import { rand, randInt, random } from '../core/rng.js';
 
 const DURATION = 45;
 const ZONE = [0.40, 0.70];          // grab zone along the belt (0..1)
@@ -211,7 +212,7 @@ export class Incinerator extends Minigame {
     const list = [];
     let t = 0.3, last = null, run = 0;
     while (t < DURATION - 0.6) {
-      let kind = Math.random() < 0.56 ? 'art' : 'part';
+      let kind = random() < 0.56 ? 'art' : 'part';
       if (kind === last && run >= 3) kind = kind === 'art' ? 'part' : 'art';
       run = kind === last ? run + 1 : 1; last = kind;
       list.push({
@@ -340,7 +341,7 @@ export class Incinerator extends Minigame {
   // -------------------------------------------------------------- animation
 
   _animateFurnaces(dt) {
-    const t = this.engine.time;
+    const t = this.clock;
     for (const lane of this.lanes) {
       lane.burst = Math.max(0, lane.burst - dt * 1.8);
       const flick = 0.8 + Math.sin(t * 13 + lane.flamePhase) * 0.12 + Math.sin(t * 31 + lane.flamePhase * 2) * 0.08;
@@ -471,7 +472,7 @@ export class Incinerator extends Minigame {
       let m = b.memory[it.id];
       if (!m) {
         // First sight: decide whether this looks like art.
-        const want = it.kind === 'art' ? Math.random() < 0.72 + 0.26 * b.difficulty : Math.random() < b.error * 0.6;
+        const want = it.kind === 'art' ? random() < 0.72 + 0.26 * b.difficulty : random() < b.error * 0.6;
         m = b.memory[it.id] = { want, at: null };
       }
       if (!m.want) continue;
@@ -520,7 +521,7 @@ function paintArt(style) {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 48;
   const g = c.getContext('2d');
-  const hue = randInt(0, 359);
+  const hue = crandInt(0, 359);
   const hsl = (h, s, l) => `hsl(${((h % 360) + 360) % 360},${s}%,${l}%)`;
   switch (style) {
     case 'portrait': {
@@ -539,11 +540,11 @@ function paintArt(style) {
       sky.addColorStop(0, hsl(hue, 60, 35)); sky.addColorStop(1, hsl(hue + 40, 70, 70));
       g.fillStyle = sky; g.fillRect(0, 0, 64, 48);
       g.fillStyle = hsl(hue + 60, 90, 75);
-      g.beginPath(); g.arc(randInt(12, 52), randInt(8, 18), 6, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(crandInt(12, 52), crandInt(8, 18), 6, 0, Math.PI * 2); g.fill();
       for (let k = 0; k < 3; k++) {
         g.fillStyle = hsl(hue + 120 + k * 15, 40, 40 - k * 10);
         g.beginPath(); g.moveTo(0, 48);
-        const base = 24 + k * 7, amp = rand(3, 7), ph = rand(0, 6);
+        const base = 24 + k * 7, amp = crand(3, 7), ph = crand(0, 6);
         for (let x = 0; x <= 64; x += 4) g.lineTo(x, base + Math.sin(x / 9 + ph) * amp);
         g.lineTo(64, 48); g.closePath(); g.fill();
       }
@@ -552,9 +553,9 @@ function paintArt(style) {
     case 'grid': {
       g.fillStyle = '#e8e2cf'; g.fillRect(0, 0, 64, 48);
       const cols = [hsl(hue, 80, 50), hsl(hue + 120, 80, 45), hsl(hue + 220, 70, 55), '#111'];
-      for (let k = 0; k < 5; k++) { g.fillStyle = cols[k % cols.length]; g.fillRect(randInt(0, 48), randInt(0, 34), randInt(8, 22), randInt(8, 18)); }
+      for (let k = 0; k < 5; k++) { g.fillStyle = cols[k % cols.length]; g.fillRect(crandInt(0, 48), crandInt(0, 34), crandInt(8, 22), crandInt(8, 18)); }
       g.fillStyle = '#111';
-      for (let k = 0; k < 4; k++) { g.fillRect(randInt(4, 60), 0, 2, 48); g.fillRect(0, randInt(4, 44), 64, 2); }
+      for (let k = 0; k < 4; k++) { g.fillRect(crandInt(4, 60), 0, 2, 48); g.fillRect(0, crandInt(4, 44), 64, 2); }
       break;
     }
     case 'swirl': {
@@ -562,22 +563,22 @@ function paintArt(style) {
       g.lineWidth = 3;
       for (let k = 0; k < 9; k++) {
         g.strokeStyle = hsl(hue + k * 25, 75, 45 + k * 4);
-        g.beginPath(); g.arc(32 + rand(-4, 4), 24 + rand(-3, 3), 3 + k * 3.2, rand(0, 3), rand(3.5, 6.5)); g.stroke();
+        g.beginPath(); g.arc(32 + crand(-4, 4), 24 + crand(-3, 3), 3 + k * 3.2, crand(0, 3), crand(3.5, 6.5)); g.stroke();
       }
       break;
     }
     default: { // blobs
       g.fillStyle = hsl(hue, 30, 82); g.fillRect(0, 0, 64, 48);
       for (let k = 0; k < 7; k++) {
-        g.fillStyle = hsl(hue + rand(-90, 160), 75, rand(35, 60));
-        g.beginPath(); g.ellipse(rand(6, 58), rand(6, 42), rand(4, 13), rand(3, 10), rand(0, 3), 0, Math.PI * 2); g.fill();
+        g.fillStyle = hsl(hue + crand(-90, 160), 75, crand(35, 60));
+        g.beginPath(); g.ellipse(crand(6, 58), crand(6, 42), crand(4, 13), crand(3, 10), crand(0, 3), 0, Math.PI * 2); g.fill();
       }
       g.strokeStyle = '#1a1a1a'; g.lineWidth = 2;
-      g.beginPath(); g.moveTo(rand(0, 64), rand(0, 48)); g.bezierCurveTo(rand(0, 64), rand(0, 48), rand(0, 64), rand(0, 48), rand(0, 64), rand(0, 48)); g.stroke();
+      g.beginPath(); g.moveTo(crand(0, 64), crand(0, 48)); g.bezierCurveTo(crand(0, 64), crand(0, 48), crand(0, 64), crand(0, 48), crand(0, 64), crand(0, 48)); g.stroke();
     }
   }
   // Brush grain + varnish.
-  for (let k = 0; k < 160; k++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},0.08)`; g.fillRect(rand(0, 64), rand(0, 48), 2, 1); }
+  for (let k = 0; k < 160; k++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},0.08)`; g.fillRect(crand(0, 64), crand(0, 48), 2, 1); }
   const tex = new THREE.CanvasTexture(c);
   tex.magFilter = THREE.NearestFilter;
   tex.colorSpace = THREE.SRGBColorSpace;

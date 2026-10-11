@@ -6,10 +6,13 @@
  * strength control); in mobile browsers it falls back to navigator.vibrate.
  * On PCs it does nothing.
  *
- * Most haptics come for free: `Haptics.fromSfx(name)` is hooked into the
- * audio engine, so impacts, shoves, explosions and countdown beeps in every
- * minigame vibrate without per-game code. A few personal events (your own
- * death, pressing the touch buttons) are triggered explicitly.
+ * Menus get their feel for free: `Haptics.fromSfx(name)` is hooked into the
+ * audio engine, so clicks, confirms and the 3-2-1-GO countdown vibrate.
+ * During a round that hook is muted (`roundActive`), because sounds don't
+ * say WHO caused them — a bot shoving another bot shouldn't buzz your hand.
+ * In-round feels are personal and explicit: `Haptics.forPlayer(player, kind)`
+ * only fires for the subject played on this device (getting shoved or hit,
+ * landing a shove, your death, your own button presses).
  */
 
 /**
@@ -31,13 +34,11 @@ const FEELS = {
   death:     { wave: [[0, 200, 70, 280], [0, 255, 0, 210]], prio: 9 },
 };
 
-/** Sound effect name → feel. Unlisted effects (ambience, ticks) stay silent. */
+/** Menu sound effect → feel (outside rounds only). Unlisted effects stay silent. */
 const SFX_FEELS = {
   select: 'click', join: 'click', back: 'tick', ding: 'click',
   beep: 'countdown', go: 'go', wrong: 'error', buzz: 'error',
-  shove: 'hit', thud: 'hit', clank: 'press', metal: 'press', chisel: 'press', reload: 'tick',
-  shot: 'heavy', crunch: 'heavy', splat: 'heavy', snap: 'heavy', horn: 'heavy', grind: 'heavy',
-  explode: 'explosion', win: 'win',
+  clank: 'press', explode: 'explosion', win: 'win',
 };
 
 const WINDOW_MS = 45; // feels closer together than this are merged (highest priority wins)
@@ -47,6 +48,7 @@ const LEVEL_SCALE = [0, 0.35, 0.65, 1];
 
 export const Haptics = {
   level: 3,
+  roundActive: false, // a round is being played: only personal feels (forPlayer) vibrate
   get enabled() { return this.level > 0; },
   _lastAt: 0,
   _lastPrio: -1,
@@ -89,9 +91,15 @@ export const Haptics = {
     } catch (_) { /* vibration unavailable: ignore */ }
   },
 
-  /** Hook for the audio engine: vibrate along with matching sound effects. */
+  /** Hook for the audio engine: vibrate along with menu sound effects (muted during rounds). */
   fromSfx(name) {
+    if (this.roundActive) return;
     const kind = SFX_FEELS[name];
     if (kind) this.play(kind);
+  },
+
+  /** Personal feel: only for the subject played with this device's touch controls. */
+  forPlayer(player, kind) {
+    if (player && player.device === 'touch' && !player.remote) this.play(kind);
   },
 };

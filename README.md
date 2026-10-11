@@ -72,9 +72,12 @@ by default (LAN play); add `--local` to restrict it to this computer.
 
 ## Online play (internet + LAN)
 
-The **host** runs the game and streams it; **joining players** see the live
-game and play with their own keyboard, gamepad or touch controls. PCs and
-phones mix freely. HOST ONLINE opens two rooms at once:
+Every round runs **on each player's own device**: the host sends the round's
+random seed and then everyone's inputs, 60 times per second, and every device
+simulates and renders the round itself ("deterministic lockstep"). No video
+during rounds, full local graphics, and the host's game never waits for a slow
+connection. Menus between rounds are mirrored from the host. PCs and phones
+mix freely. HOST ONLINE opens two rooms at once:
 
 - **Internet code** (6 letters, e.g. `K7QPXW`) — friends anywhere can join.
   [PeerJS Cloud](https://peerjs.com) (free public broker at `0.peerjs.com`)
@@ -92,20 +95,31 @@ phones mix freely. HOST ONLINE opens two rooms at once:
 On Windows, the first launch shows a **Windows Firewall** prompt — allow access
 on private networks, otherwise other devices on your LAN cannot reach your game.
 
-If a connection drops, the joining player reconnects automatically and gets
-their seat back; while they are away their subject stands idle and the game
-does not wait for them.
+While hosting, the codes stay visible in a corner badge on every menu
+(with each online player's ping). When a program ends or is aborted, everyone
+returns to **Subject Intake** with their seats kept. Joining players see their
+ping in the top-left corner (`RELAY` means the link runs through a relay
+server, which is slower). If a connection drops, the joining player
+reconnects automatically and gets their seat back; while they are away their
+subject stands idle and the game does not wait for them.
 
 Technical notes: internet rooms use the bundled PeerJS library
 (`game/vendor/peerjs`, MIT) for signaling only — the host registers the id
 `test-subject-social-<code>`, and a PeerJS data connection carries the WebRTC
 offer. LAN rooms carry it over the tiny WebSocket relay in `serve.py`
 (standard library only) / the Android app's `GameServer`. Both then use one
-RTCPeerConnection per player: video (capped at 720p / 1.5 Mbit/s over the
-internet), a reliable UI channel that skips stale snapshots when the link is
-busy, and an unordered no-retransmit input channel. Very strict networks (some
-corporate or mobile carriers) force traffic through PeerJS's free TURN relay,
-which can be slow; then prefer the LAN code or a hotspot.
+RTCPeerConnection per player with these channels: `input` (controller state,
+unordered, no retransmits), `sim` (round control: seed, rebuild, end) and
+`frames` (numbered input frames; each packet repeats the last 8 ticks, gaps
+are resent), plus `ui` (menu/HUD snapshots) and video for the menus.
+Lockstep details are in `src/net/lockstep.js`: simulation code takes its
+randomness from the seeded `core/rng.js` and its time from the game clock, so
+the same seed and inputs give the same round on every device; the host sends a
+state checksum every half second, and a client that ever disagrees falls back
+to the host's video for the rest of that round. A joining player's own input
+shows up after one network round-trip. Very strict networks (some corporate or
+mobile carriers) force traffic through PeerJS's free TURN relay, which is
+slower; then prefer the LAN code or a hotspot.
 
 ## Controls
 
@@ -121,22 +135,31 @@ removes one, **Esc** goes back. **Esc** during a round opens the pause menu
 
 ## Game flow
 
-1. **Title terminal** — Begin Testing, Calibration (volume, bot skill,
-   render resolution, gore), Field Manual, Credits.
+1. **Intro** (every launch, ~6 s): a facility terminal boots, the picture
+   switches on like an old CRT, the intake room lights up and the title is
+   stamped in. Then the **title terminal** — Begin Testing, Calibration
+   (volume, bot skill, render resolution, gore), Field Manual, Credits.
 2. **Subject intake (lobby)** — up to four seats. Each human joins with
    their own device and customizes a jumpsuit colour, skin tone, headwear
    and face accessory, then confirms READY. Empty seats can be filled
    with facility bots (minimum two participants).
-3. **Select program**
-   * **Full Program** — all simulations in random order, with an
-     orientation monologue and a final judgement.
-   * **Quick Shift** — 10 random simulations, no ceremony.
-   * **Custom Playlist** — toggle any simulations, optional shuffle.
-4. **Each simulation**: title card → two-page briefing (controls, then the
-   win condition) → every subject readies up → 3-2-1 → play → simulation
-   report → standings.
+3. **Select program** (always in random order; a program never opens with
+   the simulation that was just played)
+   * **Full Program** — 15 random simulations out of all 30, with an
+     orientation monologue and the winner ceremony.
+   * **Quick Shift** — 10 random simulations, no monologue.
+   * **Custom Playlist** — pick any simulations; they are shuffled.
+4. **Each simulation**: a roulette reel spins and lands on the next
+   simulation → title card → two-page briefing (controls, then the win
+   condition) → every subject readies up → 3-2-1 → play → animated
+   **simulation report** (each subject's placement and points are counted
+   onto the standings bars, the rows re-sort, the leader is crowned).
 5. Placement points per round: **3 / 2 / 1 / 0** (4 players), 3 / 1 / 0
    (3 players), 3 / 0 (2 players). Highest total is released.
+6. **Winner ceremony**: drumroll and a sweeping spotlight, then the winner's
+   pedestal rises in a burst of confetti while everyone else sinks through
+   the floor; the final table follows. Afterwards everyone returns to
+   Subject Intake.
 
 ## The simulations
 
@@ -197,7 +220,8 @@ src/core/             engine-level, game-agnostic modules
   physics.js          top-down arena movement, collisions, shove
   environment.js      reusable set dressing (rooms, pipes, monitors, stencils, fans)
   ai.js               bot steering helpers
-  util.js             math/random/timer helpers
+  rng.js              seeded random generator for simulation code (lockstep-safe)
+  util.js             math/random/timer helpers (Math.random: cosmetic use only)
 src/game/
   players.js          roster, customization, placement points table
   flow.js             programs (modes) and the per-round lifecycle + scoring
@@ -208,7 +232,9 @@ src/ui/
 src/net/
   signal.js           LAN relay WebSocket wrapper, room codes, WebRTC config
   joincode.js         LAN join codes (room + host address) and internet codes
-  host.js             NetHost: LAN + PeerJS rooms, per-peer video, UI/audio mirroring, remote input
+  host.js             NetHost: LAN + PeerJS rooms, menu mirroring, remote input, round control
+  lockstep.js         deterministic lockstep: host tick driver, client follower, checksums
+  remoteround.js      a client's own copy of the current round (build, simulate, render, HUD)
   client.js           remote-player page (?join=ROOM LAN / ?peer=CODE internet)
 src/minigames/
   base.js             Minigame base class (the contract every round implements)
@@ -230,6 +256,12 @@ export class MyGame extends Minigame {
   botThink(seat)   { seat.ctrl.setMove(1, 0); }
 }
 ```
+
+Online rounds are simulated on every device in lockstep, so game logic must be
+deterministic: take randomness from `core/rng.js` (`rand`, `pick`, `random`…)
+and time from `this.time` / `this.clock`, never `Math.random()`,
+`performance.now()` or timers. Cosmetic-only effects (texture noise, particles)
+may still use `Math.random()`.
 
 Register it in `game/src/minigames/index.js`. For quick iteration launch it
 directly with bots: `http://localhost:8765/?game=mygame&quick`

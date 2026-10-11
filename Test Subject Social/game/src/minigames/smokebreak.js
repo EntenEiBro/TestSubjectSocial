@@ -18,7 +18,8 @@ import { Minigame, rankByScore } from './base.js';
 import { Audio } from '../core/audio.js';
 import { floor, block, stencil, mesh, wallFan } from '../core/environment.js';
 import { Tex, mat, glow, canvasTexture } from '../core/textures.js';
-import { rand, clamp, lerp, damp } from '../core/util.js';
+import { clamp, lerp, damp } from '../core/util.js';
+import { rand, random } from '../core/rng.js';
 
 const DURATION = 40;
 const PUFFS_PER_CIG = 6;
@@ -254,7 +255,7 @@ export class SmokeBreak extends Minigame {
       }
       case 'exhale':
         seat.lung = Math.max(0, seat.lung - dt * 2.2);
-        if (seat.exhaleLeft > 0 && Math.random() < dt * 9) {
+        if (seat.exhaleLeft > 0 && random() < dt * 9) {
           seat.exhaleLeft--;
           this.fx.smoke(this._mouthPos(seat), { size: rand(0.16, 0.28), rise: 0.7, life: 2.2, opacity: 0.55, color: 0xb8b8b0, drift: this._drift(seat, 0.9) });
         }
@@ -262,7 +263,7 @@ export class SmokeBreak extends Minigame {
         break;
       case 'cough':
         seat.lung = Math.max(0, seat.lung - dt);
-        if (Math.random() < dt * 4) this.fx.smoke(this._mouthPos(seat), { size: 0.1, rise: 0.4, life: 1, opacity: 0.4 });
+        if (random() < dt * 4) this.fx.smoke(this._mouthPos(seat), { size: 0.1, rise: 0.4, life: 1, opacity: 0.4 });
         if (seat.modeT <= 0) seat.mode = 'idle';
         break;
       case 'light':
@@ -330,7 +331,7 @@ export class SmokeBreak extends Minigame {
   /** Posing: sitting, arm to mouth while inhaling, cough shakes. */
   _animateSeat(seat, dt) {
     if (!seat.alive) return;
-    const s = seat.subject, p = s.parts, t = this.engine.time;
+    const s = seat.subject, p = s.parts, t = this.clock;
     s.animate(dt, 0);
     p.legL.rotation.x = p.legR.rotation.x = -1.35;
     const wantUp = seat.mode === 'inhale' ? 1 : seat.mode === 'exhale' ? 0.35 : 0;
@@ -374,7 +375,7 @@ export class SmokeBreak extends Minigame {
     this.flickerT -= dt;
     if (this.flickerT <= 0) {
       if (this.flickerOff) { this.flickerOff = false; this.flickerT = rand(0.8, 3); }
-      else if (Math.random() < 0.35) { this.flickerOff = true; this.flickerT = rand(0.04, 0.14); }
+      else if (random() < 0.35) { this.flickerOff = true; this.flickerT = rand(0.04, 0.14); }
       else this.flickerT = rand(0.3, 1.5);
     }
     const level = this.flickerOff ? 0.15 : 1;
@@ -421,7 +422,7 @@ export class SmokeBreak extends Minigame {
       m.fill.style.height = `${clamp(seat.lung, 0, 1) * 100}%`;
       const inZone = seat.lung >= seat.zone.lo && seat.lung <= seat.zone.lo + seat.zone.w;
       m.fill.style.background = seat.mode === 'cough' ? '#7a1010' : inZone && seat.mode === 'inhale' ? '#47ff6a' : seat.player.color;
-      m.bar.style.transform = seat.mode === 'cough' ? `translateX(${Math.sin(this.engine.time * 50) * 3}px)` : '';
+      m.bar.style.transform = seat.mode === 'cough' ? `translateX(${Math.sin(this.clock * 50) * 3}px)` : '';
       const txt = `${seat.score} PUFFS`;
       if (m.label.textContent !== txt) m.label.textContent = txt;
     }
@@ -492,8 +493,8 @@ export class SmokeBreak extends Minigame {
       if (m.wait === undefined) m.wait = this.time + b.reaction + rand(0, 0.4);
       if (this.time >= m.wait) {
         const { lo, w } = seat.zone;
-        const jitter = (Math.random() + Math.random() - 1) * w * (1.25 - b.difficulty) * 0.9;
-        m.target = Math.random() < b.error * 0.35 ? 1.1 : lo + w * rand(0.3, 0.7) + jitter;
+        const jitter = (random() + random() - 1) * w * (1.25 - b.difficulty) * 0.9;
+        m.target = random() < b.error * 0.35 ? 1.1 : lo + w * rand(0.3, 0.7) + jitter;
         seat.ctrl.setButtons(true);
       } else seat.ctrl.setButtons(false);
     } else if (seat.mode === 'inhale') {

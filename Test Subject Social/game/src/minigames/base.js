@@ -15,6 +15,11 @@
  *
  * A "seat" is the per-round record for one participant:
  *   { player, ctrl, brain, isBot, alive, deathTime, score, subject?, actor? }
+ *
+ * Determinism (online play runs every round on each player's device in
+ * lockstep, see net/lockstep.js): simulation code must take randomness from
+ * core/rng.js and time from `this.time` / `this.clock` — never Math.random(),
+ * performance.now() or the engine's wall-clock time.
  */
 import * as THREE from 'three';
 import { Audio } from '../core/audio.js';
@@ -25,6 +30,7 @@ import { subjectFor } from '../core/characters.js';
 import { playerRing } from '../core/environment.js';
 import { Commendations } from '../game/achievements.js';
 import { Haptics } from '../core/haptics.js';
+import { Controller } from '../core/input.js';
 
 export class Minigame {
   /**
@@ -49,6 +55,8 @@ export class Minigame {
    * @param {import('../ui/hud.js').Hud} ctx.hud
    * @param {import('../game/players.js').Player[]} ctx.players
    * @param {number} ctx.botDifficulty 0..1
+   * @param {boolean} [ctx.lockstep] online round: every seat gets a private
+   *   controller that the lockstep driver feeds and commits once per tick
    */
   constructor(ctx) {
     this.ctx = ctx;
@@ -57,14 +65,20 @@ export class Minigame {
     this.hud = ctx.hud;
     this.meta = this.constructor.meta;
     this.time = 0;          // seconds since start()
+    this.clock = 0;         // seconds of simulation since build (also runs during preview)
+    this.lockstep = !!ctx.lockstep;
     this.state = 'build';   // 'build' | 'preview' | 'play' | 'over'
     this.deaths = [];       // seats in order of death
     this.scene = null;
     this.camera = null;
     this.fx = null;
     this.seats = ctx.players.map((player) => {
-      const ctrl = player.isBot ? this.input.controller('bot') : this.input.controller(player.device);
-      if (player.isBot) this.input.track(ctrl);
+      let ctrl;
+      if (this.lockstep) ctrl = new Controller(player.device);
+      else {
+        ctrl = player.isBot ? this.input.controller('bot') : this.input.controller(player.device);
+        if (player.isBot) this.input.track(ctrl);
+      }
       return {
         player, ctrl, isBot: player.isBot,
         brain: makeBrain(ctx.botDifficulty ?? 0.6),
@@ -148,7 +162,7 @@ export class Minigame {
     seat.tagTarget = null;
     this.hud.markDead(seat);
     // The phone's own player feels their death (a long, distinct buzz).
-    if (seat.player.device === 'touch') Haptics.play('death');
+    Haptics.forPlayer(seat.player, 'death');
     const sfx = sound || { gib: 'splat', shot: 'shot', crush: 'crunch', fall: 'whoosh', snap: 'snap', burn: 'burn', slice: 'saw' }[style];
     if (sfx) Audio.sfx(sfx);
     if (style !== 'fall') Audio.sfx('splat', { vol: 0.6 });
@@ -157,11 +171,14 @@ export class Minigame {
     return true;
   }
 
-  /** Unlock a one-shot commendation for a human seat (see game/achievements.js). */
-  award(seat, key) { if (seat && !seat.isBot) Commendations.unlock(key); }
+  /** True for seats played on this device (online players' seats live on their own devices). */
+  isLocal(seat) { return !!seat && !seat.isBot && !seat.player.remote; }
 
-  /** Advance a cumulative commendation counter for a human seat. */
-  progress(seat, key, amount = 1) { if (seat && !seat.isBot) Commendations.add(key, amount); }
+  /** Unlock a one-shot commendation for a human seat on this device (see game/achievements.js). */
+  award(seat, key) { if (this.isLocal(seat)) Commendations.unlock(key); }
+
+  /** Advance a cumulative commendation counter for a human seat on this device. */
+  progress(seat, key, amount = 1) { if (this.isLocal(seat)) Commendations.add(key, amount); }
 
   get aliveSeats() { return this.seats.filter((s) => s.alive); }
   get humanSeats() { return this.seats.filter((s) => !s.isBot); }
@@ -193,6 +210,7 @@ export class Minigame {
 
   /** Called every frame by the flow controller. */
   tick(dt) {
+    this.clock += dt;
     if (this.state === 'preview' || this.state === 'build') this.preview(dt);
     if (this.state === 'play') {
       this.time += dt;

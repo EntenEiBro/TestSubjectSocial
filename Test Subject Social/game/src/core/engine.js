@@ -66,6 +66,7 @@ export class Engine {
     this.clock = new THREE.Clock();
     this.time = 0;
     this.timeScale = 1;
+    this.idle = false; // true: skip frames entirely (online clients between rounds)
     this._updaters = new Set();
     this._shake = 0;
     this._camBase = null;
@@ -128,6 +129,7 @@ export class Engine {
     const loop = () => {
       requestAnimationFrame(loop);
       const raw = Math.min(this.clock.getDelta(), 1 / 20); // avoid huge steps after tab switches
+      if (this.idle) return;
       const dt = raw * this.timeScale;
       this.time += dt;
       frame(dt, raw);

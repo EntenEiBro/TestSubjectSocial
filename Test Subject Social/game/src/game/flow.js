@@ -2,12 +2,14 @@
  * flow.js — session orchestration: programs (modes) and individual rounds.
  *
  *   playProgram(app, 'original' | 'arcade' | {ids, shuffle})
- *     └ for each simulation: playRound(app, GameClass)
- *          title card → briefing (2 pages + ready) → countdown → play → results
- *     └ standings after every round, final judgement at the end
+ *     └ for each simulation: roulette reel picks it → playRound(app, GameClass)
+ *          title card → briefing (2 pages + ready) → countdown → play
+ *     └ animated points screen after every round, winner ceremony at the end
  */
 import { Audio } from '../core/audio.js';
-import { shuffle } from '../core/util.js';
+import { shuffle, sleep } from '../core/util.js';
+import { seedRandom, makeSeed } from '../core/rng.js';
+import { Haptics } from '../core/haptics.js';
 import { PLACEMENT_POINTS } from './players.js';
 import { REGISTRY } from '../minigames/index.js';
 import * as S from '../ui/screens.js';
@@ -27,24 +29,37 @@ const OUTRO_LINES = [
   'Results have been tabulated by an impartial machine.',
 ];
 
-/** Build the ordered list of minigame classes for a mode. */
-export function programList(mode) {
-  if (mode === 'original') return shuffle(REGISTRY);
-  if (mode === 'arcade') return shuffle(REGISTRY).slice(0, 10);
-  const chosen = REGISTRY.filter((G) => mode.ids.includes(G.meta.id));
-  return mode.shuffle ? shuffle(chosen) : chosen;
+/** How many simulations a program draws from the whole archive. */
+export const PROGRAM_SIZE = { original: 15, arcade: 10 };
+
+/**
+ * Build the list of minigame classes for a mode, always in random order:
+ * FULL PROGRAM draws 15 and QUICK SHIFT 10 random simulations from the whole
+ * registry; a custom playlist plays all of its picks. `lastId` (the
+ * simulation played most recently) is kept off the first slot so a new
+ * program never opens with the game that just ended.
+ */
+export function programList(mode, lastId = null) {
+  const pool = mode === 'original' || mode === 'arcade' ? REGISTRY : REGISTRY.filter((G) => mode.ids.includes(G.meta.id));
+  let list = shuffle(pool);
+  if (list.length > 1 && list[0].meta.id === lastId) list.push(list.shift());
+  if (PROGRAM_SIZE[mode]) list = list.slice(0, PROGRAM_SIZE[mode]);
+  return list;
 }
 
 /** Run a full program. Returns when the final screen is dismissed or the program aborted. */
 export async function playProgram(app, mode) {
-  const list = programList(mode);
+  const list = programList(mode, app.lastGameId);
   const ceremony = mode === 'original';
   app.players.forEach((p) => p.resetStats());
   if (ceremony) await S.monologue(app, INTRO_LINES);
   for (let i = 0; i < list.length; i++) {
+    // The next simulation is "drawn" on a spinning reel before it starts.
+    await S.roulette(app, list[i], i, list.length, REGISTRY);
     const outcome = await playRound(app, list[i], i, list.length);
     if (outcome === 'quit') { app.showBackdrop(); return; }
-    await S.standings(app, app.players, { roundIndex: i, total: list.length });
+    // Points are handed out with an animation, then the standings re-sort.
+    await S.pointsScreen(app, app.players, app.lastResults, { game: list[i], roundIndex: i, total: list.length });
   }
   if (ceremony) await S.monologue(app, OUTRO_LINES, { title: 'CONCLUSION' });
   app.showBackdrop();
@@ -60,25 +75,43 @@ export async function playRound(app, G, index = 0, total = 1) {
   const hud = app.hud;
   hud.clear();
   hud.hide();
-  const game = new G({
-    engine: app.engine, input: app.input, hud, players: app.players,
-    botDifficulty: BOT_LEVELS[app.settings.botLevel],
-  });
-  game.build();
-  app.engine.setScene(game.scene, game.camera);
-  game.state = 'preview';
-  app.game = game;
+  // Online players run the round on their own devices (net/lockstep.js).
+  const online = app.net.hasRemotePlayers;
+  const botDifficulty = BOT_LEVELS[app.settings.botLevel];
+  const build = (seed, lockstep) => {
+    seedRandom(seed);
+    const g = new G({ engine: app.engine, input: app.input, hud, players: app.players, botDifficulty, lockstep });
+    g.build();
+    app.engine.setScene(g.scene, g.camera);
+    g.state = 'preview';
+    app.game = g;
+    return g;
+  };
+  const seed = makeSeed();
+  let game = build(seed, false);
+  app.lastGameId = G.meta.id;
+  if (online) app.net.roundStart(G, seed, app.players, botDifficulty);
   Audio.music('tension');
 
   if (!app.quick) {
     await S.titleCard(app, G, index, total);
     await S.briefing(app, G, game.seats);
   }
+  if (online) {
+    // Every device swaps the briefing preview for a fresh, identical copy
+    // (the idle preview may have animated differently on each screen).
+    const seed2 = makeSeed();
+    game.dispose();
+    game = build(seed2, true);
+    app.net.roundPrepare(seed2);
+  }
   hud.setPlayers(game.seats);
   hud.show();
   if (app.touch) app.touch.setContext('play'); // joystick + buttons only during rounds
   await S.countdown(app);
-  game.begin();
+  Haptics.roundActive = true; // from now on only the local player's own events vibrate
+  if (online) app.lockstep.start(game); // tick 0 begins the round on every device
+  else game.begin();
   Audio.music('none');
 
   // Wait for the round to finish, or for a pause-menu decision.
@@ -87,16 +120,19 @@ export async function playRound(app, G, index = 0, total = 1) {
     app.pauseSignal().then((choice) => ({ kind: choice })),
   ]);
   if (app.touch) app.touch.setContext(null); // results / menus are tapped directly
+  Haptics.roundActive = false;
 
   let result = 'done';
+  app.lastResults = null; // filled in for finished rounds (shown by pointsScreen)
   if (outcome.kind === 'done') {
-    const results = scoreRound(game, outcome.tiers, G);
+    app.lastResults = scoreRound(game, outcome.tiers, G);
     hud.hide();
-    await S.roundResults(app, G, results);
+    await sleep(1400); // let the last moment of the round sink in
   } else {
     result = outcome.kind; // 'skip' | 'quit'
   }
   if (app.touch) app.touch.setContext(null);
+  if (online) { app.lockstep.stop(); app.net.roundEnd(); }
   app.game = null;
   game.dispose();
   hud.clear();

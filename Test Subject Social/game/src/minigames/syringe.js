@@ -7,8 +7,9 @@
  *    fills above your head). Searched containers stay open.
  *  - The finder becomes the INFECTED carrier, syringe visible in hand.
  *    Infected subjects press A next to a clean subject to stab them: the
- *    victim convulses, turns green and joins the hunt with +15 % speed.
- *  - Clean subjects can B-shove infected ones to stun them for 1 s
+ *    victim convulses, turns green and joins the hunt a little faster than
+ *    clean subjects (+5 %; the carrier +4 %).
+ *  - Clean subjects can B-shove infected ones to stun them for 2.6 s
  *    (infected subjects cannot shove).
  *  - The hunt lasts 60 s after the syringe is found (75 s total cap).
  *  - Everyone infected → the original carrier wins, the rest rank by
@@ -24,18 +25,21 @@ import { hangingLamp } from '../core/engine.js';
 import { room, stencil, hazardStrip, mesh, pipe, crate } from '../core/environment.js';
 import { Tex, mat } from '../core/textures.js';
 import { steerTo } from '../core/ai.js';
-import { rand, pick, dist2D, clamp } from '../core/util.js';
+import { dist2D, clamp } from '../core/util.js';
+import { rand, pick, random } from '../core/rng.js';
 
 const HALF_W = 9, MIN_Z = -6.1, MAX_Z = 5.5;
 const SEARCH_TIME = 1.2;
 const SEARCH_REACH = 1.0;
 const HUNT_TIME = 40, TOTAL_CAP = 70;
 const STAB_RANGE = 1.2, STAB_CD = 1.6;
-const CONVULSE = 3.0;            // fresh victims writhe before joining the hunt
-const INFECTED_SPEED = 1.0;      // stab victims who join the hunt
-const CARRIER_SPEED = 0.96;      // the original carrier
+const CONVULSE = 4.0;            // fresh victims writhe before joining the hunt
+// The infected are slightly faster than clean subjects; the longer daze and
+// convulsion keep survival possible (bot tests: survivors in ~1 of 5 rounds).
+const INFECTED_SPEED = 1.05;     // stab victims who join the hunt
+const CARRIER_SPEED = 1.04;      // the original carrier
 const PRIME_TIME = 2.5;          // finder uncaps the needle (survivors' head start)
-const STUN_TIME = 2.0;           // a survivor's shove leaves a hunter dazed this long
+const STUN_TIME = 2.6;           // a survivor's shove leaves a hunter dazed this long
 const HINT_AFTER = 25;           // the hiding place starts rattling if nobody found it
 const GREEN = new THREE.Color(0x5cff4a);
 
@@ -80,7 +84,7 @@ export class SyringeHunt extends Minigame {
     objective: 'Find the syringe and infect everyone — or stay clean until the clock runs out.',
     rules: [
       'Hold {A} at a locker, cabinet or desk to search it. One of them hides the syringe.',
-      'The finder is infected. Infected subjects stab others with {A} to convert them.',
+      'The finder is infected. Infected subjects are slightly faster and stab others with {A} to convert them.',
       'Clean subjects shove the infected to stun them. At time-out the infected are purged.',
     ],
   };
@@ -397,7 +401,7 @@ export class SyringeHunt extends Minigame {
         p.seat.subject.root.rotation.z = Math.sin(this.time * 45) * 0.2;
         p.seat.subject.pose = 'armsUp';
       }
-      if (this.purgeT >= p.at) this.kill(p.seat, Math.random() < 0.5 ? 'gib' : 'burn');
+      if (this.purgeT >= p.at) this.kill(p.seat, random() < 0.5 ? 'gib' : 'burn');
     }
   }
 
@@ -429,7 +433,7 @@ export class SyringeHunt extends Minigame {
       // Occasionally shove a rival who is mid-search.
       for (const r of this.aliveSeats) {
         if (r === seat || !r.search.c) continue;
-        if (dist2D(a.pos, r.actor.pos) < 1.2 && Math.random() < brain.difficulty * dt * 1.2) {
+        if (dist2D(a.pos, r.actor.pos) < 1.2 && random() < brain.difficulty * dt * 1.2) {
           a.facing = Math.atan2(r.actor.pos.x - a.pos.x, r.actor.pos.z - a.pos.z);
           c.setButtons(false, true);
           return;
@@ -489,7 +493,7 @@ export class SyringeHunt extends Minigame {
     if (!hunters.length) { c.setMove(0, 0); return; }
     let closest = null, cd = Infinity;
     for (const h of hunters) { const d = dist2D(a.pos, h.actor.pos); if (d < cd) { cd = d; closest = h; } }
-    if (closest && cd < 1.45 && closest.actor.stun <= 0 && a.shoveCd <= 0 && Math.random() < brain.difficulty * dt * 12) {
+    if (closest && cd < 1.45 && closest.actor.stun <= 0 && a.shoveCd <= 0 && random() < brain.difficulty * dt * 12) {
       a.facing = Math.atan2(closest.actor.pos.x - a.pos.x, closest.actor.pos.z - a.pos.z);
       c.setMove(0, 0);
       c.setButtons(false, true);

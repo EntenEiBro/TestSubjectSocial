@@ -58,6 +58,36 @@ export const HUD_PHRASES = [
   'CROSS', 'STAND STILL TO PING SONAR', 'FIRST OUT', 'HARVEST TIME', 'NO MERCY',
   // symbol floor
   'SYMBOLS REASSIGNED', 'FALLING', 'STANDING', 'FELL', 'STRUCTURAL FAILURE', 'CIRCLE', 'SQUARE', 'TRIANGLE',
+  // hotseat
+  'CLAIM THE PLATE', 'PLATE RELOCATING', 'PLATE LIVE', 'ON THE PLATE', 'CONTESTED', 'FRIED', 'Stand on the plate alone to score · {B} shoves',
+  // ordnance
+  'PASS IT ON', 'NEW ORDNANCE', '{A} toss the bomb · {B} shove', 'HOLDER', 'TICKING', 'VAPORISED', 'DETONATED',
+  // dropzone
+  'COLLECT THE RATIONS', 'Grab golden rations · dodge red shadows · {B} shoves', 'HEAVY LOADS INBOUND', 'QUOTA RAISED', 'NO SURVIVORS', 'TOP EARNER',
+  // turbine
+  'HOLD YOUR GROUND', 'Walk into the wind · {B} shove', 'WIND FROM THE BACK', 'WIND FROM THE RIGHT', 'WIND FROM THE FRONT', 'WIND FROM THE LEFT', 'MAXIMUM AIRFLOW', 'VENTILATION TEST CONCLUDED', 'SHELTERED',
+  // cablerun
+  '{MOVE} steer · {A} sprint', 'POWER ON', 'VOLTAGE RISING', 'SPRINT READY', 'RECHARGING', 'SPRINTING', 'LAST LIVE WIRE', 'TOTAL BLACKOUT',
+  // motion
+  'MOVE', 'FREEZE', 'MOVEMENT DETECTED', 'EXIT REACHED', 'HALL CLOSED', 'SHOT', '{MOVE} on green · freeze on red · {B} shoves',
+  // spincycle
+  'SPIN UP', '{MOVE} fight the spin · {B} shove', 'OUTER RING FAILING', 'RING LOST', 'CORE ONLY', 'DISC STOPPED', 'ON DISC', 'SLIPPING', 'SPUN OUT', 'NEAR EDGE', 'GET OFF THE RING',
+  // crumble
+  'MIND YOUR STEP', '{MOVE} move · {A} hop · {B} shove', 'SUBSIDENCE WARNING', 'FINAL COLLAPSE', 'AIRBORNE', 'HOP READY',
+  // quickdraw
+  'WAIT...', 'DRAW!', 'FALSE START', 'TOO SLOW', 'DEAD HEAT', 'STEADY', 'LIFE LOST', 'Press {A} the moment the screen turns green',
+  // ventcrawl
+  'DRONE ONLINE', 'SECOND DRONE DEPLOYED', 'DRONES OVERCLOCKED', 'NEW CHIPS DETECTED', 'VENTS CLEARED', 'HEARD', 'QUIET', 'NEUTRALIZED', '{MOVE} crawl · {B} shove · stand still to stay quiet',
+  // lasersweep
+  'BEAM ONLINE', 'HIGH BEAM ONLINE', 'THIRD BEAM ONLINE', 'COUNTER-ROTATION', 'REVERSING', 'CAUTERIZED', 'GROUNDED', '{A} jump over red · {B} shove', 'Magenta burns the airborne — stay down',
+  // chairs
+  'MUSIC ON — DO NOT TOUCH', 'SIT!', 'TRAPDOOR OPEN', 'LAST SUBJECT SEATED', 'NOBODY SAT', 'SEATED', 'ZAPPED', 'DROPPED', 'When the music stops: {A} sits · {B} shoves', 'Press {A} at a free chair',
+  // winch
+  'CRANK!', 'Alternate {A} and {B} to crank · same button twice slips', 'GRINDER ACCELERATING', 'CRANKING', 'SLIPPED!', 'GRINDER CLOSE!', 'ESCAPED', 'MINCED', 'NOBODY ESCAPED', 'SHAFT CLEARED',
+  // pressure
+  'Hold {A} to pump · {B} banks', 'PUMPING', 'STUNNED', 'BURST!', 'RUPTURED', 'TEST CONCLUDED', 'LAST TANK STANDING',
+  // glassbridge
+  'WATCH YOUR STEP', '{MOVE} walk · {B} shove', 'BRIDGE UNSTABLE', 'BRIDGE DECOMMISSIONED', 'WAITING', 'ON BRIDGE',
 ];
 
 export const HUD_PATTERNS = [
@@ -108,6 +138,44 @@ export const HUD_PATTERNS = [
   { id: 'escapedLower', re: /^(.+) escaped$/, example: 'UNIT-4 escaped' },
   { id: 'neverListened', re: /^(.+) never listened$/, example: 'SUBJECT 1 never listened' },
   { id: 'metersToGo', re: /^(\d+)m TO GO$/, example: '23m TO GO' },
+  { id: 'hotseatPoints', re: /^POINTS (\d+)$/, example: 'POINTS 12' },
+  { id: 'hotseatFried', re: /^(.+) fried (.+)$/, example: 'SUBJECT 1 fried UNIT-2' },
+  { id: 'ordnancePassed', re: /^(.+) passed the bomb to (.+)$/, example: 'SUBJECT 1 passed the bomb to UNIT-2' },
+  { id: 'ordnanceTossed', re: /^(.+) tossed the bomb to (.+)$/, example: 'UNIT-2 tossed the bomb to SUBJECT 1' },
+  { id: 'ordnanceHas', re: /^(.+) has the bomb$/, example: 'UNIT-3 has the bomb' },
+  { id: 'ordnanceDetonated', re: /^(.+) — DETONATED$/, example: 'UNIT-2 — DETONATED' },
+  { id: 'dropzoneFlatPts', re: /^FLATTENED · PTS (\d+)$/, example: 'FLATTENED · PTS 3' },
+  { id: 'dropzoneShovedUnder', re: /^(.+) shoved (.+) under the load$/, example: 'SUBJECT 1 shoved UNIT-2 under the load' },
+  { id: 'fedShredders', re: /^(.+) fed the shredders$/, example: 'SUBJECT 1 fed the shredders' },
+  { id: 'cableFence', re: /^(.+) hugged the fence$/, example: 'SUBJECT 1 hugged the fence' },
+  { id: 'cableOwn', re: /^(.+) tripped over their own cable$/, example: 'UNIT-2 tripped over their own cable' },
+  { id: 'cableOther', re: /^(.+) touched (.+)'s cable$/, example: 'SUBJECT 1 touched UNIT-3\'s cable' },
+  { id: 'motionMeters', re: /^(\d+) M TO EXIT$/, example: '14 M TO EXIT' },
+  { id: 'motionExit', re: /^EXIT #(\d+)$/, example: 'EXIT #1' },
+  { id: 'motionReached', re: /^(.+) reached the exit$/, example: 'UNIT-2 reached the exit' },
+  { id: 'motionFramed', re: /^(.+) framed (.+)$/, example: 'SUBJECT 1 framed UNIT-3' },
+  { id: 'spincycleShaft', re: /^(.+) sent (.+) down the shaft$/, example: 'SUBJECT 1 sent UNIT-2 down the shaft' },
+  { id: 'crumbleFloored', re: /^(.+) floored (.+)$/, example: 'SUBJECT 1 floored UNIT-2' },
+  { id: 'quickdrawHeat', re: /^HEAT (\d+)$/, example: 'HEAT 3' },
+  { id: 'quickdrawLives', re: /^LIVES (\d+)$/, example: 'LIVES 2' },
+  { id: 'quickdrawMs', re: /^(\d+) MS$/, example: '234 MS' },
+  { id: 'quickdrawFeedMs', re: /^(.+): (\d+) MS$/, example: 'SUBJECT 1: 234 MS' },
+  { id: 'quickdrawFeedFalse', re: /^(.+): FALSE START$/, example: 'UNIT-2: FALSE START' },
+  { id: 'quickdrawFeedSlow', re: /^(.+): TOO SLOW$/, example: 'UNIT-3: TOO SLOW' },
+  { id: 'quickdrawDrawsFirst', re: /^(.+) DRAWS FIRST$/, example: 'SUBJECT 1 DRAWS FIRST' },
+  { id: 'ventChips', re: /^CHIPS (\d+)$/, example: 'CHIPS 4' },
+  { id: 'laserTripped', re: /^(.+) tripped (.+) into a beam$/, example: 'SUBJECT 1 tripped UNIT-2 into a beam' },
+  { id: 'chairsLeft', re: /^CHAIRS LEFT: (\d+)$/, example: 'CHAIRS LEFT: 2' },
+  { id: 'chairsUnseated', re: /^(.+) unseated (.+)$/, example: 'SUBJECT 1 unseated UNIT-2' },
+  { id: 'chairsZapped', re: /^(.+) got zapped$/, example: 'UNIT-3 got zapped' },
+  { id: 'winchHeight', re: /^(\d+\.\d)m$/, example: '12.4m' },
+  { id: 'pressureStat', re: /^BANKED (\d+) · STRIKES (\d+)\/(\d+)$/, example: 'BANKED 214 · STRIKES 1/3' },
+  { id: 'pressureBankedPlus', re: /^BANKED \+(\d+)$/, example: 'BANKED +57' },
+  { id: 'pressureBigBank', re: /^(.+) BANKED (\d+)$/, example: 'UNIT-2 BANKED 91' },
+  { id: 'pressureBlewTank', re: /^(.+) BLEW A TANK \((\d+)\/(\d+)\)$/, example: 'SUBJECT 1 BLEW A TANK (2/3)' },
+  { id: 'glassAcross', re: /^ACROSS #(\d+)$/, example: 'ACROSS #1' },
+  { id: 'glassMadeIt', re: /^(.+) made it across$/, example: 'SUBJECT 1 made it across' },
+  { id: 'glassVolunteered', re: /^(.+) volunteered (.+)$/, example: 'UNIT-2 volunteered SUBJECT 1' },
   { id: 'terminated', re: /^(.+) — TERMINATED$/, example: 'UNIT-2 — TERMINATED' },
   { id: 'nameReason', re: /^(.+) — (.+)$/, example: 'UNIT-2 — CAUGHT EATING' },
 ];

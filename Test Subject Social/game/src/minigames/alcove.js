@@ -23,7 +23,7 @@ import { hangingLamp } from '../core/engine.js';
 import { floor, block, stencil, hazardStrip, mesh, pipe } from '../core/environment.js';
 import { Tex, mat, glow } from '../core/textures.js';
 import { steerTo } from '../core/ai.js';
-import { rand, shuffle } from '../core/util.js';
+import { rand, shuffle, random } from '../core/rng.js';
 
 const HALF = 2.6;          // tunnel half-depth: wall faces at z = ±HALF
 const DEPTH = 1.15;        // nook depth beyond the wall face
@@ -222,7 +222,7 @@ export class AlcoveRoulette extends Minigame {
     if (this.previewT <= 0 && !this.train.visible) {
       this.previewT = 6;
       shuffle(this.nooks).forEach((nk, i) => this._lamp(nk, i < 3 ? 'green' : 'red'));
-      this._launchTrain(Math.random() < 0.5 ? 1 : -1, false);
+      this._launchTrain(random() < 0.5 ? 1 : -1, false);
     }
     this._animate(dt);
   }
@@ -233,7 +233,7 @@ export class AlcoveRoulette extends Minigame {
     this.cycle++;
     const safeCount = Math.max(1, this.aliveSeats.length - 1);
     shuffle(this.nooks).forEach((nk, i) => { nk.safe = i < safeCount; nk.slammed = false; nk.crushed = false; this._lamp(nk, nk.safe ? 'green' : 'red'); });
-    this.trainDir = Math.random() < 0.5 ? 1 : -1;
+    this.trainDir = random() < 0.5 ? 1 : -1;
     this.warnDur = warnFor(this.cycle);
     this.phase = 'warn';
     this.phaseT = 0;
@@ -314,7 +314,7 @@ export class AlcoveRoulette extends Minigame {
     vic.data.lastShover = att.seat;
     const nk = this.nookOf(vic);
     if (!nk) return;
-    const sx = Math.sign(vic.pos.x - att.pos.x) || (Math.random() < 0.5 ? -1 : 1);
+    const sx = Math.sign(vic.pos.x - att.pos.x) || (random() < 0.5 ? -1 : 1);
     vic.knock.set(sx * 3.5, 0, -nk.side * 11);
     vic.stun = 0.55;
     Audio.sfx('clank', { vol: 0.6 });
@@ -455,7 +455,7 @@ export class AlcoveRoulette extends Minigame {
     const a = seat.actor, brain = seat.brain, mem = brain.memory;
     a.ctrl.setButtons(false, false);
     const mine = this.nookOf(a);
-    if (mem.cycle !== this.cycle) { mem.cycle = this.cycle; mem.sloppy = Math.random() < brain.error; mem.target = null; }
+    if (mem.cycle !== this.cycle) { mem.cycle = this.cycle; mem.sloppy = random() < brain.error; mem.target = null; }
 
     if (this.phase === 'warn' || this.phase === 'train') {
       if (this.phase === 'warn' && this.phaseT < brain.reaction * 2.2) return; // still processing the lights
@@ -480,7 +480,7 @@ export class AlcoveRoulette extends Minigame {
         const d = Math.hypot(occ.pos.x - a.pos.x, occ.pos.z - a.pos.z);
         if (d < 1.4) {
           a.ctrl.setMove((occ.pos.x - a.pos.x) / d * 0.3, (occ.pos.z - a.pos.z) / d * 0.3);
-          if (Math.random() < 0.12 + brain.difficulty * 0.15) a.ctrl.setButtons(false, true);
+          if (random() < 0.12 + brain.difficulty * 0.15) a.ctrl.setButtons(false, true);
         } else steerTo(a, ex, ez, { arrive: 0.1 });
       }
       return;

@@ -18,7 +18,8 @@ import { Audio } from '../core/audio.js';
 import { block, mesh, stencil, pipe } from '../core/environment.js';
 import { Tex, mat, glow } from '../core/textures.js';
 import { Subject } from '../core/characters.js';
-import { rand, lerp, clamp, damp } from '../core/util.js';
+import { lerp, clamp, damp, rand as crand } from '../core/util.js';
+import { rand, random } from '../core/rng.js';
 
 const PEAS = 22;          // peas per plate
 const FORK_MAX = 3;
@@ -51,7 +52,7 @@ function newsTexture() {
   for (let col = 0; col < 4; col++) {
     for (let y = 62; y < 168; y += 5) {
       if (col === 1 && y < 110) continue;
-      ctx.fillRect(12 + col * 59, y, rand(40, 54), 2);
+      ctx.fillRect(12 + col * 59, y, crand(40, 54), 2);
     }
   }
   ctx.fillStyle = '#4a463d'; ctx.fillRect(71, 62, 54, 44);
@@ -272,7 +273,7 @@ export class SupperClub extends Minigame {
     const peas = new THREE.InstancedMesh(this.peaGeo, this.peaMat, PEAS);
     const m4 = new THREE.Matrix4();
     for (let i = 0; i < PEAS; i++) {
-      const a = rand(0, Math.PI * 2), r = Math.sqrt(Math.random()) * 0.17;
+      const a = rand(0, Math.PI * 2), r = Math.sqrt(random()) * 0.17;
       m4.makeTranslation(px + Math.cos(a) * r, TABLE_TOP + 0.064 + (i > 14 ? 0.03 : 0), z + Math.sin(a) * r);
       peas.setMatrixAt(i, m4);
     }
@@ -343,10 +344,10 @@ export class SupperClub extends Minigame {
     const go = (state, t) => { h.state = state; h.t = t; h.age = 0; };
     switch (h.state) {
       case 'reading':
-        if (Math.random() < dt * 0.6) Audio.sfx('search', { vol: 0.25 }); // idle page rustle
+        if (random() < dt * 0.6) Audio.sfx('search', { vol: 0.25 }); // idle page rustle
         if (h.t <= 0) {
           h.event++;
-          h.fake = Math.random() < 0.28;
+          h.fake = random() < 0.28;
           go('warning', WARN_TIME);
           Audio.sfx('puff', { vol: 0.9 });          // paper rustle
           Audio.sfx('grind', { vol: 0.25 });        // chair creak
@@ -452,7 +453,7 @@ export class SupperClub extends Minigame {
       Audio.sfx('horn');
       // Exactly one guest is excused: most peas left; ties go to whoever has
       // the emptiest fork, then to chance.
-      const victim = eating.slice().sort((a, b) => (b.diner.peas - a.diner.peas) || (a.diner.fork - b.diner.fork) || (Math.random() - 0.5))[0];
+      const victim = eating.slice().sort((a, b) => (b.diner.peas - a.diner.peas) || (a.diner.fork - b.diner.fork) || (random() - 0.5))[0];
       this.hud.banner('DINNER IS OVER', 1600, 'danger');
       // The host lowers his paper for the occasion.
       Object.assign(this.host, { state: 'watching', t: 2, age: 0 });
@@ -468,7 +469,7 @@ export class SupperClub extends Minigame {
     const rate = h.state === 'warning' ? 30 : h.state === 'watching' ? 14 : 8;
     h.lower += (target - h.lower) * damp(rate, dt);
     // Paper: upright in front of the face → tipped forward and down.
-    const rustle = h.state === 'reading' ? Math.sin(performance.now() * 0.011) * 0.015 : 0;
+    const rustle = h.state === 'reading' ? Math.sin((this.clock * 1000) * 0.011) * 0.015 : 0;
     this.paper.rotation.x = h.lower * 0.6 + rustle;
     this.paper.position.y = 1.55 - h.lower * 0.62;
     // Eyes
@@ -562,7 +563,7 @@ export class SupperClub extends Minigame {
     // (clumsy bots sometimes get greedy and don't stop in time).
     if (m.event !== h.event) {
       m.event = h.event;
-      m.stopAfter = b.reaction + (Math.random() < b.error * 0.9 ? rand(0.5, 1.1) : 0);
+      m.stopAfter = b.reaction + (random() < b.error * 0.9 ? rand(0.5, 1.1) : 0);
       m.resume = b.reaction + rand(0.1, 0.45);
     }
     let safe = false;

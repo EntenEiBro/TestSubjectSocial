@@ -19,7 +19,8 @@ import { Audio } from '../core/audio.js';
 import { hangingLamp } from '../core/engine.js';
 import { floor, block, mesh, monitor, stencil, pipe, hazardStrip } from '../core/environment.js';
 import { Tex, mat, glow } from '../core/textures.js';
-import { rand, lerp, clamp, shuffle, damp } from '../core/util.js';
+import { lerp, clamp, damp } from '../core/util.js';
+import { rand, shuffle, random } from '../core/rng.js';
 
 const PATTERNS = 8;
 const CUBE = 0.4, PITCH = 0.46;
@@ -336,7 +337,7 @@ export class ChiselTest extends Minigame {
   }
 
   _animate(dt) {
-    const now = performance.now();
+    const now = (this.clock * 1000);
     for (const seat of this.seats) {
       const b = seat.bench;
       // Cubes: drop-in / restore pop.
@@ -382,7 +383,7 @@ export class ChiselTest extends Minigame {
 
   /** Big monitor: target grid, pattern number and timer. */
   _drawScreen() {
-    const blink = Math.floor(performance.now() / 250) % 2 === 0;
+    const blink = Math.floor((this.clock * 1000) / 250) % 2 === 0;
     const sec = Math.max(0, Math.ceil(this.phaseT));
     const key = `${this.phase}|${this.round}|${this.target.join('')}|${this.phase === 'work' ? sec : blink}`;
     if (key === this._screenKey) return;
@@ -447,7 +448,7 @@ export class ChiselTest extends Minigame {
       m.round = this.round;
       m.wait = brain.reaction + rand(0.3, 0.7) + cellsFor(this.round) * 0.07;
       m.goal = this.target.slice();
-      if (Math.random() < brain.error * 0.8) { const i = Math.floor(Math.random() * 9); m.goal[i] = !m.goal[i]; }
+      if (random() < brain.error * 0.8) { const i = Math.floor(random() * 9); m.goal[i] = !m.goal[i]; }
     }
     m.wait -= dt;
     if (m.wait > 0) return;
@@ -458,7 +459,7 @@ export class ChiselTest extends Minigame {
     if (!needed.length) { c.setButtons(false, true); return; } // submit
     const r0 = Math.floor(b.cur / 3), c0 = b.cur % 3;
     // Rare slip: chisel the wrong cell (it will notice and fix it if time allows).
-    if (!needed.includes(b.cur) && Math.random() < brain.error * 0.4) { c.setButtons(true, false); return; }
+    if (!needed.includes(b.cur) && random() < brain.error * 0.4) { c.setButtons(true, false); return; }
     let best = needed[0], bd = Infinity;
     for (const i of needed) { const d = Math.abs(Math.floor(i / 3) - r0) + Math.abs((i % 3) - c0); if (d < bd) { bd = d; best = i; } }
     if (best === b.cur) { c.setButtons(true, false); return; }

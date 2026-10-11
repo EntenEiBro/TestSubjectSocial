@@ -25,7 +25,8 @@ import { hangingLamp } from '../core/engine.js';
 import { floor, block, stencil, hazardStrip, mesh } from '../core/environment.js';
 import { Tex, mat, glow, textTexture } from '../core/textures.js';
 import { steerTo } from '../core/ai.js';
-import { rand, pick, clamp, damp } from '../core/util.js';
+import { clamp, damp } from '../core/util.js';
+import { rand, pick, random } from '../core/rng.js';
 
 const HALF_W = 7;           // courtyard half-width
 const FAR_Z = -22;          // far wall
@@ -504,7 +505,7 @@ export class OpenSeason extends Minigame {
       const sorted = runners.slice().sort((a, b) => b.actor.pos.z - a.actor.pos.z);
       m.target = sorted.find((s) => this._visible(s)) || sorted[0];
       m.retarget = rand(1.4, 2.4);
-      m.head = Math.random() < 0.15 + 0.35 * d;
+      m.head = random() < 0.15 + 0.35 * d;
       m.onT = 0;
     }
     const t = m.target;
@@ -533,7 +534,7 @@ export class OpenSeason extends Minigame {
         if (onTarget || (m.onT > brain.reaction + 0.6 && !blocked)) {
           if (!wasA) { c.setButtons(true, false); m.lastA = true; }
           m.onT = 0;
-          m.head = Math.random() < 0.15 + 0.35 * d;
+          m.head = random() < 0.15 + 0.35 * d;
         } else if (m.onT > 1.2) { m.retarget = 0; }
       }
     } else m.onT = Math.max(0, m.onT - dt);
@@ -558,7 +559,7 @@ export class OpenSeason extends Minigame {
       m.wait -= dt;
       c.setMove(0, 0);
       // Break cover right after the rifle fires.
-      if (this.cool > 0.6 && Math.random() < brain.difficulty * dt * 6) m.wait = 0;
+      if (this.cool > 0.6 && random() < brain.difficulty * dt * 6) m.wait = 0;
       if (this.sub.t > SUB_TIME - 8) m.wait = 0;
       return;
     }
@@ -568,13 +569,13 @@ export class OpenSeason extends Minigame {
       m.step++;
       if (wp.cover) m.wait = rand(0.2, 1.3) * (seat.os.wounded ? 0.4 : 1);
     }
-    if (d > 3 && a.shoveCd <= 0 && Math.random() < 0.25 * dt) c.setButtons(false, true);
+    if (d > 3 && a.shoveCd <= 0 && random() < 0.25 * dt) c.setButtons(false, true);
   }
 
   _makePlan() {
     const plan = [];
     for (let row = 0; row < 4; row++) {
-      if (Math.random() < 0.2) continue;
+      if (random() < 0.2) continue;
       const c = pick(this.cover.filter((cv) => cv.row === row));
       plan.push({ x: c.x + rand(-0.3, 0.3) * c.w, z: c.z - c.d / 2 - 0.6, cover: true });
     }
