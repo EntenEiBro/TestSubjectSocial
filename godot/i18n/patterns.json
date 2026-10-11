@@ -1,0 +1,350 @@
+[
+{
+"id": "subjectName",
+"re": "^SUBJECT (\\d+)$"
+},
+{
+"id": "unitName",
+"re": "^UNIT-(\\d+)$"
+},
+{
+"id": "greenNooks",
+"re": "^<b>(\\d+)</b> GREEN NOOKS? — GET IN$"
+},
+{
+"id": "evicted",
+"re": "^(.+) evicted (.+)$"
+},
+{
+"id": "lastNook",
+"re": "^(.+) took the last nook$"
+},
+{
+"id": "patternPrompt",
+"re": "^PATTERN (\\d+) / (\\d+) — carve the shape on the monitor$"
+},
+{
+"id": "patternOf",
+"re": "^PATTERN (\\d+)/(\\d+)$"
+},
+{
+"id": "pattern",
+"re": "^PATTERN (\\d+)$"
+},
+{
+"id": "wearingSpider",
+"re": "^(.+) is wearing the spider$"
+},
+{
+"id": "buzzerBeater",
+"re": "^(.+) — buzzer beater!$"
+},
+{
+"id": "crates",
+"re": "^CRATES (\\d+)$"
+},
+{
+"id": "scoreAcc",
+"re": "^SCORE (-?\\d+) · (\\d+)%$"
+},
+{
+"id": "hasRifle",
+"re": "^(.+) HAS THE RIFLE$"
+},
+{
+"id": "roundHunter",
+"re": "^ROUND (\\d+)/(\\d+) — HUNTER: (.+)$"
+},
+{
+"id": "escapedPlus2",
+"re": "^(.+) ESCAPED \\+2$"
+},
+{
+"id": "downOut",
+"re": "^(\\d+) DOWN · (\\d+) OUT$"
+},
+{
+"id": "wounded",
+"re": "^(.+) WOUNDED$"
+},
+{
+"id": "headshot",
+"re": "^(.+) ▸ (.+) — HEADSHOT$"
+},
+{
+"id": "infectedBy",
+"re": "^(.+) ▸ (.+) INFECTED$"
+},
+{
+"id": "hit",
+"re": "^(.+) ▸ (.+)$"
+},
+{
+"id": "points",
+"re": "^PTS (-?\\d+)$"
+},
+{
+"id": "escapedNum",
+"re": "^(.+) — ESCAPED #(\\d+)$"
+},
+{
+"id": "escapedHash",
+"re": "^ESCAPED #(\\d+)$"
+},
+{
+"id": "stepStreak",
+"re": "^STEP (\\d+)/(\\d+) · x(\\d+)$"
+},
+{
+"id": "junk",
+"re": "^JUNK (\\d+)$"
+},
+{
+"id": "specialDelivery",
+"re": "^(.+) made a special delivery$"
+},
+{
+"id": "blade",
+"re": "^BLADE (\\d+)$"
+},
+{
+"id": "fedSaws",
+"re": "^(.+) fed the saws$"
+},
+{
+"id": "reloaded",
+"re": "^(.+) RELOADED$"
+},
+{
+"id": "isArmed",
+"re": "^(.+) IS ARMED$"
+},
+{
+"id": "pistolAssembled",
+"re": "^(.+) — PISTOL ASSEMBLED$"
+},
+{
+"id": "ammo",
+"re": "^AMMO (\\d+)/(\\d+)$"
+},
+{
+"id": "parts",
+"re": "^PARTS (\\d+)/(\\d+)$"
+},
+{
+"id": "carrying",
+"re": "^CARRYING (.+)$"
+},
+{
+"id": "puffsCig",
+"re": "^PUFFS (\\d+) · CIG (\\d+)$"
+},
+{
+"id": "puffs",
+"re": "^(\\d+) PUFFS$"
+},
+{
+"id": "peasFork",
+"re": "^PEAS (\\d+) {2}FORK (\\d+)$"
+},
+{
+"id": "peas",
+"re": "^PEAS (\\d+)$"
+},
+{
+"id": "finishedNum",
+"re": "^FINISHED #(\\d+)$"
+},
+{
+"id": "plateClean",
+"re": "^(.+) — PLATE CLEAN$"
+},
+{
+"id": "foundSyringe",
+"re": "^(.+) FOUND THE SYRINGE$"
+},
+{
+"id": "jabs",
+"re": "^JABS (\\d+)$"
+},
+{
+"id": "opened",
+"re": "^OPENED (\\d+)$"
+},
+{
+"id": "placeOut",
+"re": "^#(\\d+) OUT$"
+},
+{
+"id": "escapedLower",
+"re": "^(.+) escaped$"
+},
+{
+"id": "neverListened",
+"re": "^(.+) never listened$"
+},
+{
+"id": "metersToGo",
+"re": "^(\\d+)m TO GO$"
+},
+{
+"id": "hotseatPoints",
+"re": "^POINTS (\\d+)$"
+},
+{
+"id": "hotseatFried",
+"re": "^(.+) fried (.+)$"
+},
+{
+"id": "ordnancePassed",
+"re": "^(.+) passed the bomb to (.+)$"
+},
+{
+"id": "ordnanceTossed",
+"re": "^(.+) tossed the bomb to (.+)$"
+},
+{
+"id": "ordnanceHas",
+"re": "^(.+) has the bomb$"
+},
+{
+"id": "ordnanceDetonated",
+"re": "^(.+) — DETONATED$"
+},
+{
+"id": "dropzoneFlatPts",
+"re": "^FLATTENED · PTS (\\d+)$"
+},
+{
+"id": "dropzoneShovedUnder",
+"re": "^(.+) shoved (.+) under the load$"
+},
+{
+"id": "fedShredders",
+"re": "^(.+) fed the shredders$"
+},
+{
+"id": "cableFence",
+"re": "^(.+) hugged the fence$"
+},
+{
+"id": "cableOwn",
+"re": "^(.+) tripped over their own cable$"
+},
+{
+"id": "cableOther",
+"re": "^(.+) touched (.+)'s cable$"
+},
+{
+"id": "motionMeters",
+"re": "^(\\d+) M TO EXIT$"
+},
+{
+"id": "motionExit",
+"re": "^EXIT #(\\d+)$"
+},
+{
+"id": "motionReached",
+"re": "^(.+) reached the exit$"
+},
+{
+"id": "motionFramed",
+"re": "^(.+) framed (.+)$"
+},
+{
+"id": "spincycleShaft",
+"re": "^(.+) sent (.+) down the shaft$"
+},
+{
+"id": "crumbleFloored",
+"re": "^(.+) floored (.+)$"
+},
+{
+"id": "quickdrawHeat",
+"re": "^HEAT (\\d+)$"
+},
+{
+"id": "quickdrawLives",
+"re": "^LIVES (\\d+)$"
+},
+{
+"id": "quickdrawMs",
+"re": "^(\\d+) MS$"
+},
+{
+"id": "quickdrawFeedMs",
+"re": "^(.+): (\\d+) MS$"
+},
+{
+"id": "quickdrawFeedFalse",
+"re": "^(.+): FALSE START$"
+},
+{
+"id": "quickdrawFeedSlow",
+"re": "^(.+): TOO SLOW$"
+},
+{
+"id": "quickdrawDrawsFirst",
+"re": "^(.+) DRAWS FIRST$"
+},
+{
+"id": "ventChips",
+"re": "^CHIPS (\\d+)$"
+},
+{
+"id": "laserTripped",
+"re": "^(.+) tripped (.+) into a beam$"
+},
+{
+"id": "chairsLeft",
+"re": "^CHAIRS LEFT: (\\d+)$"
+},
+{
+"id": "chairsUnseated",
+"re": "^(.+) unseated (.+)$"
+},
+{
+"id": "chairsZapped",
+"re": "^(.+) got zapped$"
+},
+{
+"id": "winchHeight",
+"re": "^(\\d+\\.\\d)m$"
+},
+{
+"id": "pressureStat",
+"re": "^BANKED (\\d+) · STRIKES (\\d+)/(\\d+)$"
+},
+{
+"id": "pressureBankedPlus",
+"re": "^BANKED \\+(\\d+)$"
+},
+{
+"id": "pressureBigBank",
+"re": "^(.+) BANKED (\\d+)$"
+},
+{
+"id": "pressureBlewTank",
+"re": "^(.+) BLEW A TANK \\((\\d+)/(\\d+)\\)$"
+},
+{
+"id": "glassAcross",
+"re": "^ACROSS #(\\d+)$"
+},
+{
+"id": "glassMadeIt",
+"re": "^(.+) made it across$"
+},
+{
+"id": "glassVolunteered",
+"re": "^(.+) volunteered (.+)$"
+},
+{
+"id": "terminated",
+"re": "^(.+) — TERMINATED$"
+},
+{
+"id": "nameReason",
+"re": "^(.+) — (.+)$"
+}
+]
