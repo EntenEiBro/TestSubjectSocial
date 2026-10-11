@@ -64,6 +64,7 @@ export class LiveOrdnance extends Minigame {
 
   build() {
     const scene = this.makeScene({ fogNear: 18, fogFar: 50 });
+    this.fx.reserveFlash(); // explosions reuse one light (no shader recompiles)
     this.makeCamera([0, 15.5, 11.8], [0, 0, 0.6], 48);
 
     // --- floor, pen walls, set dressing

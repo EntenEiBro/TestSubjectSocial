@@ -67,8 +67,38 @@ export class Backdrop {
   /** Raise (positive) or sink (negative) pedestal `i` smoothly to `y` metres. */
   setLift(i, y) { this.slots[i].liftTarget = y; }
 
+  /**
+   * Compact description of what an online client needs to draw the same room
+   * (host.js sends it with the menu snapshots; see applyState).
+   */
+  state() {
+    return {
+      m: this.mode,
+      s: this.slots.map((s) => [s.look || null, s.number ?? 0, s.subject ? s.subject.pose || 'idle' : 'idle', s.liftTarget, s.bursts || 0]),
+      l: this.spotlight ? [...this.spotlight] : null,
+    };
+  }
+
+  /** Mirror a host's state(): rebuild changed subjects, follow poses, lifts, lights and confetti. */
+  applyState(st) {
+    if (!st) return;
+    this.mode = st.m;
+    st.s.forEach(([look, number, pose, lift, bursts], i) => {
+      const s = this.slots[i];
+      if (!s) return;
+      if (JSON.stringify(look) !== JSON.stringify(s.look || null) || number !== (s.number ?? 0)) this.setSlot(i, look, number);
+      this.setPose(i, pose);
+      s.liftTarget = lift;
+      if (bursts > (s.bursts || 0)) { s.bursts = bursts - 1; this.burstConfetti(i); }
+      s.bursts = bursts;
+    });
+    const lit = st.l ? st.l.join() : null, cur = this.spotlight ? [...this.spotlight].join() : null;
+    if (lit !== cur) this.setSpotlight(st.l);
+  }
+
   /** Throw a burst of confetti above pedestal `i`. */
   burstConfetti(i, count = 120) {
+    this.slots[i].bursts = (this.slots[i].bursts || 0) + 1;
     const x = this.slots[i].x;
     for (let k = 0; k < count; k++) {
       const m = new THREE.Mesh(this._confettiGeo, this._confettiMats[k % this._confettiMats.length]);
@@ -93,6 +123,8 @@ export class Backdrop {
     const s = this.slots[i];
     if (s.subject) { s.holder.remove(s.subject.root); s.subject.dispose(); s.subject = null; }
     s.on = !!look;
+    s.look = look || null;
+    s.number = look ? number : 0;
     if (!look) return;
     s.subject = new Subject({ ...look, number: String(number).padStart(2, '0') });
     s.subject.root.rotation.y = 0;

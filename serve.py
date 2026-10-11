@@ -1,183 +1,50 @@
-"""Static file server + WebSocket signaling relay for Test Subject Social.
+"""Local static file server for Test Subject Social (development).
 
 Usage:
-    python serve.py [port]            reachable on your local network (binds 0.0.0.0) — LAN play
-    python serve.py [port] --local    this computer only (binds 127.0.0.1)
+    python serve.py [port]            then open http://localhost:<port> (default 8765)
+    python serve.py [port] --eos      also run the Epic Online Services bridge, so
+                                      HOST ONLINE / JOIN ONLINE work in a browser
+    python serve.py [port] --eos --fresh-id
+                                      the same with a brand-new anonymous EOS
+                                      identity (a second player on the same PC)
+    python serve.py [port] --eos --peer-bridge=PORT
+                                      also reach the bridge of the server on PORT
+                                      at /eos2/, and serve /__duo.html: host and
+                                      second player side by side in one tab
 
-Then open http://localhost:<port> (default 8765, the same port the phone app
-uses, so PCs and phones can join each other with join codes).
-
-Besides serving files (with caching disabled so module edits show up on a
-normal reload) this server provides two tiny endpoints used by online play:
-
-    GET /netinfo              JSON with this machine's LAN address and port
-    GET /ws?room=CODE&role=host|client
-                              WebSocket relay. A host owns a room; clients
-                              join it. The relay only forwards JSON signaling
-                              messages (WebRTC offers/answers/ICE candidates);
-                              game video, UI and input then flow peer-to-peer.
-
-Relay protocol (all text frames, JSON):
-    server -> host    {"type": "join",  "id": n}           a client connected
-    server -> host    {"type": "leave", "id": n}           a client disconnected
-    server -> host    {"type": "msg",   "from": n, "data": ...}
-    host   -> server  {"to": n, "data": ...}               forwarded to client n
-    client -> server  {"data": ...}                        forwarded to host
-    server -> client  {"type": "msg", "data": ...}
-    server -> any     {"type": "error", "reason": "..."}
-
-Only the Python standard library is used (RFC 6455 framing is implemented
-below), so there is nothing to install.
+Serves 'Test Subject Social/game' to this computer only (binds 127.0.0.1),
+with caching disabled so module edits show up on a normal reload. Only the
+Python standard library is used, so there is nothing to install. The EOS
+bridge needs the SDK in EOS/ and the product IDs in eos_config.json (both
+kept out of git; see eos_bridge.py).
 """
-import base64
-import hashlib
 import http.server
 import json
 import os
-import socket
-import struct
 import sys
 import threading
-from urllib.parse import parse_qs, urlparse
+import urllib.request
 
-WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-MAX_FRAME = 1 << 20  # signaling messages are small; refuse anything absurd
+ROOT = os.path.dirname(os.path.abspath(__file__))
+EOS = None          # EOSBridge when started with --eos
+EOS_LOG = []        # (id, event): every page polls with its own cursor, so nothing is lost
+EOS_COND = threading.Condition()
+PEER_PORT = None    # --peer-bridge: second player's server (dev test page)
 
-
-class WebSocket:
-    """Minimal server-side RFC 6455 connection (text frames, ping/pong, close)."""
-
-    def __init__(self, rfile, wfile):
-        self.rfile = rfile
-        self.wfile = wfile
-        self.lock = threading.Lock()
-        self.open = True
-
-    def _read_exact(self, n):
-        data = self.rfile.read(n)
-        if data is None or len(data) < n:
-            raise ConnectionError("socket closed")
-        return data
-
-    def recv(self):
-        """Return the next text message, or None when the connection closes."""
-        while self.open:
-            b1, b2 = self._read_exact(2)
-            opcode = b1 & 0x0F
-            masked = b2 & 0x80
-            length = b2 & 0x7F
-            if length == 126:
-                length = struct.unpack(">H", self._read_exact(2))[0]
-            elif length == 127:
-                length = struct.unpack(">Q", self._read_exact(8))[0]
-            if length > MAX_FRAME:
-                raise ConnectionError("frame too large")
-            mask = self._read_exact(4) if masked else b"\0\0\0\0"
-            payload = bytearray(self._read_exact(length))
-            for i in range(length):
-                payload[i] ^= mask[i % 4]
-            if opcode == 0x8:  # close
-                self.close()
-                return None
-            if opcode == 0x9:  # ping -> pong
-                self._send_frame(0xA, bytes(payload))
-                continue
-            if opcode in (0x1, 0x0):
-                return payload.decode("utf-8", errors="replace")
-            # binary / pong frames are ignored
-        return None
-
-    def _send_frame(self, opcode, payload):
-        header = bytearray([0x80 | opcode])
-        n = len(payload)
-        if n < 126:
-            header.append(n)
-        elif n < 65536:
-            header += bytes([126]) + struct.pack(">H", n)
-        else:
-            header += bytes([127]) + struct.pack(">Q", n)
-        with self.lock:
-            self.wfile.write(bytes(header) + payload)
-            self.wfile.flush()
-
-    def send(self, obj):
-        if not self.open:
-            return
-        try:
-            self._send_frame(0x1, json.dumps(obj).encode("utf-8"))
-        except OSError:
-            self.open = False
-
-    def close(self):
-        if self.open:
-            self.open = False
-            try:
-                self._send_frame(0x8, b"")
-            except OSError:
-                pass
+DUO_PAGE = b"""<!doctype html><meta charset="utf-8"><title>TSS duo</title>
+<style>body{margin:0;background:#111;display:flex;flex-wrap:wrap}iframe{width:50vw;height:28.125vw;border:0}</style>
+<iframe id="a" src="/"></iframe><iframe id="b" src="about:blank"></iframe>
+<script>window.join=(code)=>{document.getElementById('b').src='/?room='+code+'&eosdev=/eos2';};</script>
+"""
 
 
-class Rooms:
-    """Thread-safe registry of rooms: code -> {"host": ws, "clients": {id: ws}}."""
-
-    def __init__(self):
-        self.lock = threading.Lock()
-        self.rooms = {}
-        self.next_id = 1
-
-    def add_host(self, code, ws):
-        with self.lock:
-            if code in self.rooms:
-                return False
-            self.rooms[code] = {"host": ws, "clients": {}}
-            return True
-
-    def remove_host(self, code):
-        with self.lock:
-            room = self.rooms.pop(code, None)
-        if room:
-            for client in room["clients"].values():
-                client.send({"type": "error", "reason": "host left"})
-                client.close()
-
-    def add_client(self, code, ws):
-        with self.lock:
-            room = self.rooms.get(code)
-            if not room:
-                return None, None
-            cid = self.next_id
-            self.next_id += 1
-            room["clients"][cid] = ws
-            return cid, room["host"]
-
-    def remove_client(self, code, cid):
-        with self.lock:
-            room = self.rooms.get(code)
-            host = room["host"] if room else None
-            if room:
-                room["clients"].pop(cid, None)
-        if host:
-            host.send({"type": "leave", "id": cid})
-
-    def client(self, code, cid):
-        with self.lock:
-            room = self.rooms.get(code)
-            return room["clients"].get(cid) if room else None
-
-
-ROOMS = Rooms()
-
-
-def lan_address():
-    """Best-effort primary LAN IP (no packets are actually sent)."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("10.255.255.255", 1))
-        return s.getsockname()[0]
-    except OSError:
-        return "127.0.0.1"
-    finally:
-        s.close()
+def eos_events(batch):
+    with EOS_COND:
+        next_id = EOS_LOG[-1][0] + 1 if EOS_LOG else 1
+        for i, e in enumerate(batch):
+            EOS_LOG.append((next_id + i, e))
+        del EOS_LOG[:-5000]
+        EOS_COND.notify_all()
 
 
 class GameHandler(http.server.SimpleHTTPRequestHandler):
@@ -188,101 +55,107 @@ class GameHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def log_message(self, fmt, *args):  # keep the console quiet for the many module requests
-        if "/ws" in (self.path or "") or "404" in (fmt % args):
+        if "404" in (fmt % args):
             super().log_message(fmt, *args)
 
-    def do_GET(self):
-        url = urlparse(self.path)
-        if url.path == "/netinfo":
-            body = json.dumps({"lan": lan_address(), "port": self.server.server_address[1],
-                               "lanEnabled": self.server.server_address[0] != "127.0.0.1"}).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
-        if url.path == "/ws" and self.headers.get("Upgrade", "").lower() == "websocket":
-            self.handle_websocket(parse_qs(url.query))
-            return
-        super().do_GET()
-
-    def handle_websocket(self, query):
-        key = self.headers.get("Sec-WebSocket-Key")
-        if not key:
-            self.send_error(400, "Missing Sec-WebSocket-Key")
-            return
-        accept = base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
-        self.send_response(101, "Switching Protocols")
-        self.send_header("Upgrade", "websocket")
-        self.send_header("Connection", "Upgrade")
-        self.send_header("Sec-WebSocket-Accept", accept)
+    # -------------------------------------------- EOS bridge over HTTP (dev only)
+    def _json(self, obj, status=200):
+        body = json.dumps(obj).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.close_connection = True
+        self.wfile.write(body)
 
-        ws = WebSocket(self.rfile, self.wfile)
-        code = (query.get("room", [""])[0] or "").upper()[:8]
-        role = query.get("role", ["client"])[0]
+    def _proxy(self, body=None):
+        """Forward /eos2/... to the second player's server (dev test page)."""
+        url = f"http://127.0.0.1:{PEER_PORT}/eos/" + self.path[len("/eos2/"):]
         try:
-            if role == "host":
-                self.run_host(ws, code)
-            else:
-                self.run_client(ws, code)
-        except (ConnectionError, OSError, ValueError):
-            pass
-        finally:
-            ws.open = False
+            with urllib.request.urlopen(urllib.request.Request(url, data=body), timeout=30) as r:
+                return self._json(json.loads(r.read()))
+        except (OSError, ValueError):
+            return self._json({"error": "peer bridge unreachable"}, 502)
 
-    def run_host(self, ws, code):
-        if not code or not ROOMS.add_host(code, ws):
-            ws.send({"type": "error", "reason": "room unavailable"})
-            return
-        try:
-            while True:
-                text = ws.recv()
-                if text is None:
-                    break
-                msg = json.loads(text)
-                target = ROOMS.client(code, msg.get("to"))
-                if target:
-                    target.send({"type": "msg", "data": msg.get("data")})
-        finally:
-            ROOMS.remove_host(code)
+    def do_GET(self):
+        if self.path.startswith("/eos2/") and PEER_PORT:
+            return self._proxy()
+        if self.path == "/__duo.html" and PEER_PORT:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(DUO_PAGE)))
+            self.end_headers()
+            return self.wfile.write(DUO_PAGE)
+        if self.path.startswith("/eos/events"):
+            if not EOS:
+                return self._json({"error": "no bridge"}, 404)
+            after = int(self.path.partition("after=")[2] or -1)
+            with EOS_COND:
+                if after < 0:  # first poll of a page: start from now
+                    return self._json({"last": EOS_LOG[-1][0] if EOS_LOG else 0, "events": []})
+                EOS_COND.wait_for(lambda: EOS_LOG and EOS_LOG[-1][0] > after, timeout=15)
+                batch = [(i, e) for i, e in EOS_LOG if i > after][:500]
+            try:
+                return self._json({"last": batch[-1][0] if batch else after, "events": [e for _, e in batch]})
+            except OSError:
+                return None  # page went away; it will catch up with its cursor
+        return super().do_GET()
 
-    def run_client(self, ws, code):
-        cid, host = ROOMS.add_client(code, ws)
-        if cid is None:
-            ws.send({"type": "error", "reason": "no such room"})
-            return
-        host.send({"type": "join", "id": cid})
-        ws.send({"type": "welcome", "id": cid})
-        try:
-            while True:
-                text = ws.recv()
-                if text is None:
-                    break
-                msg = json.loads(text)
-                host.send({"type": "msg", "from": cid, "data": msg.get("data")})
-        finally:
-            ROOMS.remove_client(code, cid)
+    def do_POST(self):
+        if self.path.startswith("/eos2/") and PEER_PORT:
+            return self._proxy(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
+        if not self.path.startswith("/eos/cmd"):
+            return self._json({"error": "not found"}, 404)
+        if not EOS:
+            return self._json({"error": "no bridge"}, 404)
+        req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        op, arg = req.get("op"), req.get("arg")
+        if op == "status":
+            return self._json(EOS.status())
+        if op == "host":
+            EOS.host()
+        elif op == "join":
+            EOS.join(arg)
+        elif op == "send":
+            EOS.send_many(arg or [])
+        elif op == "stop":
+            EOS.stop()
+        return self._json({"ok": True})
 
 
 def game_folder():
     """The game's files live in 'Test Subject Social/game' (single copy)."""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "Test Subject Social", "game")
+    return os.path.join(ROOT, "Test Subject Social", "game")
+
+
+def start_eos(fresh=False, label="dev"):
+    """Start the EOS bridge whose events are served at /eos/events."""
+    global EOS
+    import eos_bridge
+    cfg = eos_bridge.load_config(os.path.join(ROOT, "eos_config.json"))
+    if not cfg:
+        sys.exit("eos_config.json not found next to serve.py")
+    if fresh:
+        os.environ["TSS_EOS_FRESH_DEVICE"] = "1"
+    dll = os.path.join(ROOT, "EOS", "win", "SDK", "Bin", "EOSSDK-Win64-Shipping.dll")
+    data = os.path.join(os.environ.get("TEMP", ROOT), f"tss-eos-{label}")
+    os.makedirs(data, exist_ok=True)
+    EOS = eos_bridge.EOSBridge(dll, cfg, eos_events, data,
+                               log=lambda m: print(m, flush=True))
 
 
 def main():
-    os.chdir(game_folder())
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     port = int(args[0]) if args else 8765
-    # LAN play is the default; --local restricts the server to this computer.
-    bind = "127.0.0.1" if "--local" in sys.argv else "0.0.0.0"
-    server = http.server.ThreadingHTTPServer((bind, port), GameHandler)
+    global PEER_PORT
+    if "--eos" in sys.argv:
+        start_eos("--fresh-id" in sys.argv, str(port))
+    for a in sys.argv:
+        if a.startswith("--peer-bridge="):
+            PEER_PORT = int(a.split("=", 1)[1])
+    os.chdir(game_folder())
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", port), GameHandler)
     server.daemon_threads = True
-    print(f"Serving Test Subject Social on http://localhost:{port}")
-    if bind == "0.0.0.0":
-        print(f"Online play: friends on your network can join via http://{lan_address()}:{port}")
+    print(f"Serving Test Subject Social on http://localhost:{port}" + (" (EOS bridge on)" if EOS else ""))
     server.serve_forever()
 
 

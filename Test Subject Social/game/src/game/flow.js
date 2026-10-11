@@ -82,6 +82,7 @@ export async function playRound(app, G, index = 0, total = 1) {
     seedRandom(seed);
     const g = new G({ engine: app.engine, input: app.input, hud, players: app.players, botDifficulty, lockstep });
     g.build();
+    g.prewarm(); // compile all shaders now (no stalls mid-round)
     app.engine.setScene(g.scene, g.camera);
     g.state = 'preview';
     app.game = g;

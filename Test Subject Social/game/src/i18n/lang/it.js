@@ -1,6 +1,17 @@
 /** Italian language pack — generated from en-catalog.json. */
 export default {
   strings: {
+    "BACK TO MAIN MENU": "TORNA AL MENU PRINCIPALE",
+    "{BACK} leave": "{BACK} esci",
+    "OUT OF SYNC": "FUORI SINCRONIA",
+    "PRESS BACK AGAIN TO LEAVE THE ROOM": "PREMI DI NUOVO INDIETRO PER LASCIARE LA STANZA",
+    "Linking up with the host…": "Collegamento con l'host…",
+    "The host runs a different version of the game.": "L'host usa un'altra versione del gioco.",
+    "The host did not answer.": "L'host non ha risposto.",
+    "Check your internet connection and try again.": "Controlla la connessione a internet e riprova.",
+    "Type the room code shown on your friend's screen (HOST ONLINE).": "Inserisci il codice stanza mostrato sullo schermo del tuo amico (OSPITA ONLINE).",
+    "Room codes have 6 letters and digits, e.g. K7QPXW": "I codici stanza hanno 6 lettere e cifre, es. K7QPXW",
+    "That code is not valid — it looks like K7QPXW.": "Codice non valido — ha questo aspetto: K7QPXW.",
     "COMMENDATION — {title}": "ENCOMIO — {title}",
     "UNIT-{n}": "UNITÀ-{n}",
     "SUBJECT {n}": "SOGGETTO {n}",

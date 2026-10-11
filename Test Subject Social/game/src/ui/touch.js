@@ -8,6 +8,7 @@
  *
  * The controls only appear during rounds (setContext('play')); menus are
  * operated by tapping their buttons directly (see runScreen in screens.js).
+ * Online clients show just Ⓐ/Ⓑ in the host's menus (setContext('menu')).
  *
  * The controls drive the InputManager Controller with device id 'touch',
  * so menus, the lobby and every minigame treat a touch player exactly like
@@ -33,9 +34,9 @@ export function isTouchDevice() {
 export class TouchControls {
   /**
    * @param {import('../core/input.js').InputManager} input
-   * @param {{stage?: HTMLElement, alwaysVisible?: boolean}} opts
+   * @param {{stage?: HTMLElement, pause?: boolean}} opts  pause: show the pause button
    */
-  constructor(input, { stage = document.getElementById('stage'), alwaysVisible = false } = {}) {
+  constructor(input, { stage = document.getElementById('stage'), pause = true } = {}) {
     this.input = input;
     this.ctrl = input.controller('touch');
     this.stickPointer = null;
@@ -50,6 +51,7 @@ export class TouchControls {
       <div class="t-btn t-a" data-btn="a">Ⓐ</div>
       <div class="t-btn t-b" data-btn="b">Ⓑ</div>
       <div class="t-small t-pause" data-action="pause">II</div>`;
+    if (!pause) root.querySelector('.t-pause').remove();
     stage.appendChild(root);
     this.root = root;
     this.el = {
@@ -57,20 +59,21 @@ export class TouchControls {
       stick: root.querySelector('.t-stick'),
       knob: root.querySelector('.t-knob'),
     };
-    this.alwaysVisible = alwaysVisible;
     this._bind();
     this.setContext(null);
   }
 
   /**
-   * 'play' shows the joystick + buttons (during a round). Anything else hides
-   * them so menus can be used by tapping directly. Online clients pass
-   * `alwaysVisible` because they navigate the host's menus with the stick.
+   * 'play' shows the joystick + buttons (during a round); 'menu' only the
+   * Ⓐ/Ⓑ buttons (online clients: join and ready up in the host's menus).
+   * Anything else hides them so menus can be used by tapping directly.
    */
   setContext(ctx) {
-    const show = this.alwaysVisible || ctx === 'play';
+    this.context = ctx;
+    const show = ctx === 'play' || ctx === 'menu';
     this.root.classList.toggle('hidden', !show);
-    if (!show) this._release();
+    this.root.classList.toggle('menu', ctx === 'menu');
+    this._release();
   }
 
   /** Let go of everything (when the controls are hidden mid-press). */
@@ -83,8 +86,14 @@ export class TouchControls {
     this.root.querySelectorAll('.t-btn.down').forEach((b) => b.classList.remove('down'));
   }
 
-  /** Hide/show the whole overlay (e.g. while a text field is focused). */
-  setVisible(v) { this.root.classList.toggle('hidden', !v); }
+  /**
+   * Hide the whole overlay (e.g. while a text field is focused); showing it
+   * again restores the current context (no joystick in menus).
+   */
+  setVisible(v) {
+    if (v) this.setContext(this.context);
+    else this.root.classList.add('hidden');
+  }
 
   _bind() {
     const radiusPx = () => this.root.clientHeight * STICK_RADIUS;

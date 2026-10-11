@@ -1,6 +1,17 @@
 /** Russian language pack — generated from en-catalog.json. */
 export default {
   strings: {
+    "BACK TO MAIN MENU": "В ГЛАВНОЕ МЕНЮ",
+    "{BACK} leave": "{BACK} выйти",
+    "OUT OF SYNC": "РАССИНХРОН",
+    "PRESS BACK AGAIN TO LEAVE THE ROOM": "НАЖМИТЕ НАЗАД ЕЩЁ РАЗ, ЧТОБЫ ПОКИНУТЬ КОМНАТУ",
+    "Linking up with the host…": "Соединение с хостом…",
+    "The host runs a different version of the game.": "У хоста другая версия игры.",
+    "The host did not answer.": "Хост не ответил.",
+    "Check your internet connection and try again.": "Проверьте подключение к интернету и попробуйте снова.",
+    "Type the room code shown on your friend's screen (HOST ONLINE).": "Введите код комнаты с экрана друга (СОЗДАТЬ ОНЛАЙН).",
+    "Room codes have 6 letters and digits, e.g. K7QPXW": "Код комнаты — 6 букв и цифр, например K7QPXW",
+    "That code is not valid — it looks like K7QPXW.": "Неверный код — он выглядит так: K7QPXW.",
     'COMMENDATION — {title}': 'НАГРАДА — {title}',
     'UNIT-{n}': 'ЮНИТ-{n}',
     'SUBJECT {n}': 'СУБЪЕКТ {n}',

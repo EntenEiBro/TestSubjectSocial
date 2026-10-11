@@ -1,6 +1,17 @@
 /** Simplified Chinese language pack — generated from en-catalog.json. */
 export default {
   strings: {
+    "BACK TO MAIN MENU": "返回主菜单",
+    "{BACK} leave": "{BACK} 离开",
+    "OUT OF SYNC": "不同步",
+    "PRESS BACK AGAIN TO LEAVE THE ROOM": "再按一次返回以离开房间",
+    "Linking up with the host…": "正在连接主机…",
+    "The host runs a different version of the game.": "主机运行的是另一个版本的游戏。",
+    "The host did not answer.": "主机没有响应。",
+    "Check your internet connection and try again.": "请检查网络连接后重试。",
+    "Type the room code shown on your friend's screen (HOST ONLINE).": "输入朋友屏幕上显示的房间代码（创建在线房间）。",
+    "Room codes have 6 letters and digits, e.g. K7QPXW": "房间代码由 6 个字母和数字组成，例如 K7QPXW",
+    "That code is not valid — it looks like K7QPXW.": "代码无效 — 格式应类似 K7QPXW。",
     'COMMENDATION — {title}': '嘉奖 — {title}',
     'UNIT-{n}': '单位-{n}',
     'SUBJECT {n}': '受试者 {n}',

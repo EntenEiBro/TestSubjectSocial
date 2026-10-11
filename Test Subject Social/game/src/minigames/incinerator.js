@@ -62,6 +62,7 @@ export class Incinerator extends Minigame {
     this.beltLen = this.spacing - 0.7;
     const width = n * this.spacing;
     const scene = this.makeScene({ fogNear: 18, fogFar: 52, ambientIntensity: 1.1 });
+    this.fx.reserveFlash(); // explosions reuse one light (no shader recompiles)
     // Fit every station horizontally: tan(hfov/2) ≈ 0.736 for fov 45 at 16:9.
     const dist = (width + 1.2) / (2 * 0.736 * 0.95);
     const look = new THREE.Vector3(0, 1.45, 0.1);

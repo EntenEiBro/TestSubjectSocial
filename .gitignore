@@ -12,6 +12,7 @@ dist/
 Android Version.zip
 android/.gradle/
 android/app/build/
+android/app/.cxx/
 android/build/
 android/local.properties
 
@@ -22,3 +23,9 @@ __pycache__/
 # Local tooling / editor settings
 .claude/
 *.log
+
+# Epic Online Services: SDK (not ours to redistribute) + local credentials
+EOS/
+eos_config.json
+Test Subject Social/eos/
+

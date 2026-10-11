@@ -201,6 +201,67 @@ export class Minigame {
 
   // ----------------------------------------------------------- engine-facing
 
+  /**
+   * Compile every shader the round can need now, behind the briefing, so
+   * nothing stalls mid-round (phones need ~100 ms per batch of shaders):
+   *  - lights attached to objects move to the scene root and follow them
+   *    (see _syncLights). A light that appears or disappears with its object
+   *    changes the light count, and that recompiles every material;
+   *  - all materials are compiled, hidden objects included, plus samples of
+   *    the effect materials (blood, pools, smoke, sparks) and one avatar per
+   *    seat. Materials that only exist later must be on a hidden template
+   *    mesh in build() (see sonar.js pings, pressure.js shards).
+   * Called by the flow right after build().
+   */
+  prewarm() {
+    if (!this.scene || !this.camera) return;
+    this._hoistLights();
+    const samples = this.fx ? this.fx.samples() : [];
+    // Avatars spawned later in the round (e.g. a seat that sits out a phase) use these shaders.
+    const avatars = this.seats.map((seat) => subjectFor(seat.player));
+    for (const a of avatars) samples.push(a.root);
+    for (const m of samples) this.scene.add(m);
+    try {
+      this.engine.renderer.compile(this.scene, this.camera);
+    } finally {
+      for (const m of samples) this.scene.remove(m);
+      for (const a of avatars) a.dispose();
+    }
+  }
+
+  _hoistLights() {
+    const lights = [];
+    this.scene.traverse((o) => { if (o.isLight && !o.isAmbientLight && !o.isHemisphereLight && o.parent !== this.scene) lights.push(o); });
+    this._lights = lights.map((light) => {
+      const anchor = new THREE.Object3D(); // stands in for the light inside its object
+      anchor.position.copy(light.position);
+      light.parent.add(anchor);
+      this.scene.add(light);
+      return { light, anchor, hidden: false, saved: light.intensity };
+    });
+    this._syncLights();
+  }
+
+  /** Hoisted lights follow their anchor; while it is hidden (or removed) the light is dark. */
+  _syncLights() {
+    if (!this._lights) return;
+    for (const h of this._lights) {
+      let o = h.anchor;
+      let shown = true;
+      while (o && o !== this.scene) { if (!o.visible) shown = false; o = o.parent; }
+      if (!o) shown = false; // no longer in the scene
+      if (shown) {
+        if (h.hidden) { h.hidden = false; h.light.intensity = h.saved; }
+        h.anchor.updateWorldMatrix(true, false);
+        h.light.position.setFromMatrixPosition(h.anchor.matrixWorld);
+      } else {
+        if (h.light.intensity !== 0) h.saved = h.light.intensity; // the round may still change it
+        h.hidden = true;
+        h.light.intensity = 0;
+      }
+    }
+  }
+
   /** Countdown finished. */
   begin() {
     this.state = 'play';
@@ -224,6 +285,7 @@ export class Minigame {
       }
     }
     if (this.fx) this.fx.update(dt);
+    this._syncLights();
     this._updateTags();
   }
 

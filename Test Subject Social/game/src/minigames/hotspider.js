@@ -56,6 +56,7 @@ export class HotSpider extends Minigame {
 
   build() {
     const scene = this.makeScene({ fogNear: 20, fogFar: 52 });
+    this.fx.reserveFlash(); // explosions reuse one light (no shader recompiles)
     this.makeCamera([0, 16.5, 12.2], [0, 0, 0.4], 48);
 
     // --- the pit: furnace glow beneath a see-through grate

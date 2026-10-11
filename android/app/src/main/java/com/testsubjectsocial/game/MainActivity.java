@@ -19,9 +19,8 @@ import android.webkit.WebViewClient;
  * Full-screen landscape game activity.
  *
  * Starts the in-app {@link GameServer} and shows the game in a WebView at
- * http://127.0.0.1:8765/. When the player joins a friend's game, the WebView
- * navigates to the host phone's server instead; the back button then
- * returns to this phone's own game. Inside the game, back acts as pause.
+ * http://127.0.0.1:8765/. Inside the game, back acts as Esc (pause / back).
+ * Online play goes through Epic Online Services ({@link EosBridge}).
  */
 public class MainActivity extends Activity {
     private static final String HOME = "http://127.0.0.1:" + GameServer.PORT + "/";
@@ -34,9 +33,6 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void quit() { runOnUiThread(MainActivity.this::finish); }
 
-        @JavascriptInterface
-        public String getLanIp() { return GameServer.lanAddress(); }
-
         /** Crisp system haptic: "tick" (lightest), "click" or "heavy". */
         @JavascriptInterface
         public void haptic(String kind) { haptics.predefined(kind); }
@@ -47,6 +43,7 @@ public class MainActivity extends Activity {
     }
 
     private Haptics haptics;
+    private EosBridge eos;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -66,13 +63,15 @@ public class MainActivity extends Activity {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);                 // settings + commendations
-        s.setMediaPlaybackRequiresUserGesture(false); // game audio + remote video
+        s.setMediaPlaybackRequiresUserGesture(false); // game audio from the first frame
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient());
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
+        eos = new EosBridge(this, web);
+        web.addJavascriptInterface(eos, "AndroidEOS");
         setContentView(web);
         enterImmersive();
         // Optional start path for testing over adb: am start ... --es path "?game=chisel"
@@ -116,12 +115,7 @@ public class MainActivity extends Activity {
     @SuppressWarnings("deprecation")
     @Override
     public void onBackPressed() {
-        String url = web.getUrl();
-        if (url != null && !url.startsWith(HOME)) {
-            web.loadUrl(HOME); // leave a friend's game, back to our own
-            return;
-        }
-        // In our own game: behave like Esc (pause / back in menus).
+        // Behave like Esc (pause / back in menus).
         web.evaluateJavascript(
                 "window.dispatchEvent(new KeyboardEvent('keydown',{code:'Escape',key:'Escape'}));"
                         + "setTimeout(function(){window.dispatchEvent(new KeyboardEvent('keyup',{code:'Escape',key:'Escape'}));},80);",
@@ -138,6 +132,7 @@ public class MainActivity extends Activity {
         super.onPause();
         web.evaluateJavascript("window.__onAppPause && window.__onAppPause();", ignored -> web.pauseTimers());
         web.onPause();
+        eos.setForeground(false);
     }
 
     @Override
@@ -145,12 +140,14 @@ public class MainActivity extends Activity {
         super.onResume();
         web.resumeTimers();
         web.onResume();
+        eos.setForeground(true);
         web.evaluateJavascript("window.__onAppResume && window.__onAppResume();", null);
         enterImmersive();
     }
 
     @Override
     protected void onDestroy() {
+        eos.destroy();
         web.destroy();
         server.stop();
         super.onDestroy();

@@ -54,6 +54,7 @@ export class SonarCrossing extends Minigame {
 
   build() {
     const scene = this.makeScene({ fog: 0x0a0b0d, fogNear: 20, fogFar: 46, ambient: 0x4a5060, ambientIntensity: 1.15 });
+    this.fx.reserveFlash(); // explosions reuse one light (no shader recompiles)
     this.makeCamera([0, 12, 11], [0, 0, -3.5], 50);
     this.camGoal = 1.0;
     this.camZ = 1.0;
@@ -94,6 +95,11 @@ export class SonarCrossing extends Minigame {
     this._placeMines(scene);
     this._buildHarvester(scene);
     this.pings = [];
+    // Ping rings clone this material; the hidden template lets prewarm() compile its shader.
+    this.pingMat = new THREE.MeshBasicMaterial({ color: 0x39ff5a, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
+    const template = mesh(new THREE.RingGeometry(0.88, 1, 8), this.pingMat, 0, 0.06, 0, { cast: false });
+    template.visible = false;
+    scene.add(template);
     this.finishers = [];
     this.harvestAnnounced = false;
     this.capAnnounced = false;
@@ -276,7 +282,7 @@ export class SonarCrossing extends Minigame {
     const a = seat.actor;
     seat.pinged = true;
     Audio.sfx('sonar');
-    const ring = mesh(new THREE.RingGeometry(0.88, 1, 40), new THREE.MeshBasicMaterial({ color: 0x39ff5a, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }), a.pos.x, 0.06, a.pos.z, { cast: false });
+    const ring = mesh(new THREE.RingGeometry(0.88, 1, 40), this.pingMat.clone(), a.pos.x, 0.06, a.pos.z, { cast: false });
     ring.rotation.x = -Math.PI / 2;
     ring.scale.setScalar(0.2);
     this.scene.add(ring);
@@ -395,7 +401,8 @@ export class SonarCrossing extends Minigame {
       p.t += dt / 0.7;
       p.ring.scale.setScalar(0.2 + p.t * PING_R);
       p.ring.material.opacity = 0.9 * (1 - p.t);
-      if (p.t >= 1) { this.scene.remove(p.ring); p.ring.geometry.dispose(); p.ring.material.dispose(); this.pings.splice(i, 1); }
+      // (the material is not disposed: that would drop its compiled shader, recompiled on the next ping)
+      if (p.t >= 1) { this.scene.remove(p.ring); p.ring.geometry.dispose(); this.pings.splice(i, 1); }
     }
     // Revealed mines fade out
     for (const m of this.mines) {

@@ -107,6 +107,10 @@ export class PressureTest extends Minigame {
       face: new THREE.MeshBasicMaterial({ map: gaugeTexture(), color: 0xdddddd }),
       needle: glow(0xc81e14),
     };
+    // Shards only appear when a tank bursts: a hidden one lets prewarm() compile their shader.
+    const shardTemplate = new THREE.Mesh(this.geo.shard, this.mats.shard);
+    shardTemplate.visible = false;
+    scene.add(shardTemplate);
 
     // Room
     floor(scene, W, 16, { tex: 'plate', tile: 2, z: 2 });

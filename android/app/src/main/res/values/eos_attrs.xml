@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The EOS SDK's overlay close icon (unused here) refers to this AppCompat
+     theme attribute; declaring it lets the app link without AppCompat. -->
+<resources>
+    <attr name="colorControlNormal" format="color|reference" />
+</resources>

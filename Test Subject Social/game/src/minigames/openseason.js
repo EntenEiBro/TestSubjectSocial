@@ -138,6 +138,11 @@ export class OpenSeason extends Minigame {
     this.boltT = 0;
     this.leaving = [];
     this.tracers = [];
+    // Tracers clone this material; the hidden template lets prewarm() compile its shader.
+    this.tracerMat = new THREE.LineBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.9 });
+    const template = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]), this.tracerMat);
+    template.visible = false;
+    this.scene.add(template);
     this.swayT = 0;
     for (const seat of this.seats) seat.os = { points: 0, kills: 0, escapes: 0, wounded: false, down: false, escaped: false, meshes: [], trailT: 0 };
     this._setupSub(0);
@@ -443,7 +448,7 @@ export class OpenSeason extends Minigame {
 
   _tracer(from, to) {
     const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
-    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.9 }));
+    const line = new THREE.Line(geo, this.tracerMat.clone());
     this.scene.add(line);
     this.tracers.push({ m: line, life: 0.12 });
   }
@@ -453,7 +458,8 @@ export class OpenSeason extends Minigame {
       const t = this.tracers[i];
       t.life -= dt;
       t.m.material.opacity = Math.max(0, t.life / 0.12);
-      if (t.life <= 0) { this.scene.remove(t.m); t.m.geometry.dispose(); t.m.material.dispose(); this.tracers.splice(i, 1); }
+      // (the material is not disposed: that would drop its compiled shader, recompiled on the next shot)
+      if (t.life <= 0) { this.scene.remove(t.m); t.m.geometry.dispose(); this.tracers.splice(i, 1); }
     }
     for (let i = this.leaving.length - 1; i >= 0; i--) {
       const l = this.leaving[i];

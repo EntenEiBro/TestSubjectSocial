@@ -1,6 +1,17 @@
 /** Japanese language pack — generated from en-catalog.json. */
 export default {
   strings: {
+    "BACK TO MAIN MENU": "メインメニューへ戻る",
+    "{BACK} leave": "{BACK} 退出",
+    "OUT OF SYNC": "同期ずれ",
+    "PRESS BACK AGAIN TO LEAVE THE ROOM": "もう一度戻るを押すとルームから退出します",
+    "Linking up with the host…": "ホストに接続中…",
+    "The host runs a different version of the game.": "ホストは別のバージョンのゲームを使っています。",
+    "The host did not answer.": "ホストから応答がありません。",
+    "Check your internet connection and try again.": "インターネット接続を確認して、もう一度お試しください。",
+    "Type the room code shown on your friend's screen (HOST ONLINE).": "友達の画面に表示されたルームコードを入力してください（オンラインでホスト）。",
+    "Room codes have 6 letters and digits, e.g. K7QPXW": "ルームコードは英数字6文字です（例: K7QPXW）",
+    "That code is not valid — it looks like K7QPXW.": "無効なコードです — K7QPXW のような形式です。",
     'COMMENDATION — {title}': '表彰 — {title}',
     'UNIT-{n}': 'ユニット-{n}',
     'SUBJECT {n}': '被験者{n}',

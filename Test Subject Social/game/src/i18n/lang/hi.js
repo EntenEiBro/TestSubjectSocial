@@ -1,6 +1,17 @@
 /** Hindi language pack — generated from en-catalog.json. */
 export default {
   strings: {
+    "BACK TO MAIN MENU": "मुख्य मेनू पर वापस",
+    "{BACK} leave": "{BACK} छोड़ें",
+    "OUT OF SYNC": "सिंक से बाहर",
+    "PRESS BACK AGAIN TO LEAVE THE ROOM": "कमरा छोड़ने के लिए फिर से वापस दबाएँ",
+    "Linking up with the host…": "होस्ट से जुड़ रहे हैं…",
+    "The host runs a different version of the game.": "होस्ट गेम का अलग संस्करण चला रहा है।",
+    "The host did not answer.": "होस्ट ने जवाब नहीं दिया।",
+    "Check your internet connection and try again.": "अपना इंटरनेट कनेक्शन जाँचें और फिर से कोशिश करें।",
+    "Type the room code shown on your friend's screen (HOST ONLINE).": "अपने दोस्त की स्क्रीन पर दिखा रूम कोड लिखें (ऑनलाइन होस्ट करें)।",
+    "Room codes have 6 letters and digits, e.g. K7QPXW": "रूम कोड में 6 अक्षर और अंक होते हैं, जैसे K7QPXW",
+    "That code is not valid — it looks like K7QPXW.": "यह कोड मान्य नहीं है — यह K7QPXW जैसा दिखता है।",
     'COMMENDATION — {title}': 'प्रशस्ति — {title}',
     'UNIT-{n}': 'यूनिट-{n}',
     'SUBJECT {n}': 'सब्जेक्ट {n}',

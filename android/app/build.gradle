@@ -6,6 +6,16 @@ plugins {
 def gameDir = file("${rootDir}/../Test Subject Social/game")
 def generatedAssets = layout.buildDirectory.dir("generated/gameAssets")
 
+// Online play (Epic Online Services) is built in only when the EOS SDK and
+// the product IDs exist locally: neither is part of the git repository
+// (EOS/ = the SDK download, eos_config.json = the IDs from the EOS portal).
+def eosAar = file("${rootDir}/../EOS/android/SDK/Bin/Android/static-stdc++/aar/eossdk-StaticSTDC-release.aar")
+def eosInclude = file("${rootDir}/../EOS/android/SDK/Include")
+def eosConfig = file("${rootDir}/../eos_config.json")
+def withEos = eosAar.exists() && eosConfig.exists()
+def eosUnpacked = layout.buildDirectory.dir("unpacked/eossdk")
+def eosAssets = layout.buildDirectory.dir("generated/eosAssets")
+
 android {
     namespace 'com.testsubjectsocial.game'
     compileSdk 34
@@ -14,8 +24,29 @@ android {
         applicationId 'com.testsubjectsocial.game'
         minSdk 24          // Android 7.0+
         targetSdk 34
-        versionCode 8
-        versionName '1.0.6'
+        versionCode 9
+        versionName '1.0.7'
+
+        if (withEos) {
+            ndk { abiFilters 'arm64-v8a' }   // the EOS SDK ships 64-bit ARM (+ x86_64 emulator) builds
+            externalNativeBuild {
+                cmake { arguments "-DEOS_AAR_DIR=${eosUnpacked.get().asFile}", "-DEOS_INCLUDE_DIR=${eosInclude}" }
+            }
+            // Required by the SDK's manifest (Epic account login, unused here).
+            def clientId = new groovy.json.JsonSlurper().parse(eosConfig).clientId
+            resValue 'string', 'eos_login_protocol_scheme', "eos.${clientId.toLowerCase()}"
+        }
+    }
+
+    ndkVersion '27.2.12479018'
+    if (withEos) {
+        externalNativeBuild {
+            cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' }
+        }
+    }
+
+    packagingOptions {
+        jniLibs { useLegacyPackaging true }  // compress the (large) EOS library inside the APK
     }
 
     buildTypes {
@@ -30,10 +61,12 @@ android {
     sourceSets {
         main {
             assets.srcDirs += generatedAssets
+            if (withEos) assets.srcDirs += eosAssets
         }
     }
 
     compileOptions {
+        coreLibraryDesugaringEnabled withEos   // required by the EOS AAR
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
@@ -46,3 +79,26 @@ def copyGameAssets = tasks.register('copyGameAssets', Sync) {
     exclude '**/__pycache__/**'
 }
 tasks.named('preBuild') { dependsOn copyGameAssets }
+
+if (withEos) {
+    dependencies {
+        implementation files(eosAar)
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
+        implementation 'androidx.browser:browser:1.8.0'          // used by the EOS SDK's Java side
+        implementation 'androidx.security:security-crypto:1.0.0' // (device ID key storage)
+    }
+    // libEOSSDK.so for linking our JNI glue (src/main/cpp).
+    def unzipEosAar = tasks.register('unzipEosAar', Copy) {
+        from zipTree(eosAar)
+        include 'jni/**'
+        into eosUnpacked
+    }
+    // The product IDs as assets/eos/eos_config.json (read by EosBridge).
+    def copyEosConfig = tasks.register('copyEosConfig', Copy) {
+        from eosConfig
+        into eosAssets.map { it.dir('eos') }
+    }
+    tasks.named('preBuild') { dependsOn unzipEosAar, copyEosConfig }
+} else {
+    logger.warn('EOS SDK or eos_config.json not found: building without online play')
+}

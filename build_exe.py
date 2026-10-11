@@ -58,6 +58,7 @@ def main():
         "--windowed",              # no console window
         "--icon", os.path.join(ROOT, "icon.ico"),
         "--noconfirm",
+        "--hidden-import", "eos_bridge",
         "--clean",
         "--distpath", os.path.join(build, "dist"),
         "--workpath", os.path.join(build, "pyinstaller"),
@@ -76,6 +77,20 @@ def main():
     shutil.copy2(os.path.join(built, f"{NAME}.exe"), os.path.join(RELEASE, f"{NAME}.exe"))
     with open(os.path.join(RELEASE, "README.txt"), "w", encoding="utf-8") as f:
         f.write(README)
+
+    # Online play: the EOS SDK runtime + this game's product IDs. Neither is in
+    # the git repository (see .gitignore); without them the build still works,
+    # it just reports online play as unavailable.
+    eos_dir = os.path.join(RELEASE, "eos")
+    dll = os.path.join(ROOT, "EOS", "win", "SDK", "Bin", "EOSSDK-Win64-Shipping.dll")
+    cfg = os.path.join(ROOT, "eos_config.json")
+    if os.path.exists(dll) and os.path.exists(cfg):
+        os.makedirs(eos_dir, exist_ok=True)
+        shutil.copy2(dll, eos_dir)
+        shutil.copy2(cfg, eos_dir)
+        print("Online play: EOS SDK + config bundled")
+    else:
+        print("WARNING: EOS/ SDK or eos_config.json missing - online play disabled in this build")
 
     size = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(RELEASE) for f in fs)
     print(f"\nRelease folder: {RELEASE} ({size / 1e6:.1f} MB)")

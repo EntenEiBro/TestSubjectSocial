@@ -1,6 +1,17 @@
 /** German language pack — generated from en-catalog.json. */
 export default {
   strings: {
+    "BACK TO MAIN MENU": "ZURÜCK ZUM HAUPTMENÜ",
+    "{BACK} leave": "{BACK} verlassen",
+    "OUT OF SYNC": "NICHT SYNCHRON",
+    "PRESS BACK AGAIN TO LEAVE THE ROOM": "ZUM VERLASSEN DES RAUMS NOCHMAL ZURÜCK DRÜCKEN",
+    "Linking up with the host…": "Verbinde mit dem Host…",
+    "The host runs a different version of the game.": "Der Host nutzt eine andere Version des Spiels.",
+    "The host did not answer.": "Der Host hat nicht geantwortet.",
+    "Check your internet connection and try again.": "Prüfe deine Internetverbindung und versuche es erneut.",
+    "Type the room code shown on your friend's screen (HOST ONLINE).": "Gib den Raumcode vom Bildschirm deines Freundes ein (ONLINE HOSTEN).",
+    "Room codes have 6 letters and digits, e.g. K7QPXW": "Raumcodes haben 6 Buchstaben und Ziffern, z. B. K7QPXW",
+    "That code is not valid — it looks like K7QPXW.": "Dieser Code ist ungültig — er sieht so aus: K7QPXW.",
     'COMMENDATION — {title}': 'AUSZEICHNUNG — {title}',
     'UNIT-{n}': 'EINHEIT-{n}',
     'SUBJECT {n}': 'SUBJEKT {n}',

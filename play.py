@@ -7,16 +7,20 @@ on Windows). No browser is opened. Closing the window quits the game.
 Usage:
     python play.py              fullscreen game window
     python play.py --windowed   1280x720 window instead of fullscreen
-    python play.py --local      only this computer (no online players from your network)
 
-Online play works over your local network (LAN / Wi-Fi) by default: the
-server listens on port 8765 — the same port the phone app uses — so PCs and
-phones can join each other with the same join codes. The first launch may
-show a Windows Firewall prompt; allow access on private networks.
+The server only listens on this computer (127.0.0.1), preferably on port
+8765 so saved settings and commendations stay with the same address.
 
 In the game: F11 toggles fullscreen; the title menu has a QUIT option.
 If pywebview is unavailable, the game falls back to a browser app window.
+
+Online play (HOST ONLINE / JOIN ONLINE) goes through Epic Online Services:
+eos_bridge.py drives the EOS SDK. It needs EOSSDK-Win64-Shipping.dll and
+eos_config.json (the product IDs), which are not part of the source
+repository: the release build keeps them in an `eos` folder next to the
+.exe; from source they are read from EOS/win/SDK/Bin and eos_config.json.
 """
+import json
 import os
 import shutil
 import socket
@@ -24,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import webbrowser
 from http.server import ThreadingHTTPServer
 
@@ -46,7 +51,7 @@ def game_dir():
 
 HERE = game_dir()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import serve  # noqa: E402  (the static server + online relay)
+import serve  # noqa: E402  (the static file server)
 
 
 def log(msg):
@@ -55,10 +60,10 @@ def log(msg):
         print(msg)
 
 
-GAME_PORT = 8765  # same port as the phone app, so join codes work across devices
+GAME_PORT = 8765  # stable port = stable storage origin (settings, commendations)
 
 
-def free_port(preferred=GAME_PORT, host="0.0.0.0"):
+def free_port(preferred=GAME_PORT, host="127.0.0.1"):
     """Use `preferred` if it is free, otherwise any free port."""
     for port in (preferred, 0):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -78,19 +83,82 @@ def data_dir():
     return path
 
 
+def eos_files():
+    """(SDK dll, config json) for online play, or None if either is missing."""
+    if getattr(sys, "frozen", False):
+        base = os.path.join(os.path.dirname(sys.executable), "eos")
+        dll, cfg = os.path.join(base, "EOSSDK-Win64-Shipping.dll"), os.path.join(base, "eos_config.json")
+    else:
+        root = os.path.dirname(os.path.abspath(__file__))
+        dll = os.path.join(root, "EOS", "win", "SDK", "Bin", "EOSSDK-Win64-Shipping.dll")
+        cfg = os.path.join(root, "eos_config.json")
+    return (dll, cfg) if os.path.exists(dll) and os.path.exists(cfg) else None
+
+
 class DesktopApi:
     """Functions the game page can call as `window.pywebview.api.<name>()`."""
 
     def __init__(self):
-        self.window = None
+        # Private (underscore) attributes are not exposed to the page: pywebview would
+        # otherwise walk the whole native window object looking for functions.
+        self._window = None
+        self._eos = None          # EOSBridge, started on the first online call
+        self._eos_lock = threading.Lock()
 
     def toggle_fullscreen(self):
-        if self.window:
-            self.window.toggle_fullscreen()
+        if self._window:
+            self._window.toggle_fullscreen()
 
     def quit(self):
-        if self.window:
-            self.window.destroy()
+        if self._window:
+            self._window.destroy()
+
+    # ---- online play (Epic Online Services, see eos_bridge.py and net/eos.js)
+    def _bridge(self):
+        with self._eos_lock:
+            if self._eos is None:
+                files = eos_files()
+                if not files:
+                    return None
+                import eos_bridge
+                with open(files[1], encoding="utf-8") as f:
+                    cfg = json.load(f)
+                cache = os.path.join(data_dir(), "eos")
+                self._eos = eos_bridge.EOSBridge(files[0], cfg, self._push_events, cache, log=log)
+            return self._eos
+
+    def _push_events(self, batch):
+        if self._window:
+            self._window.run_js(f"window.__eosEvents && window.__eosEvents({json.dumps(batch)})")
+
+    def eos_status(self):
+        bridge = self._bridge()
+        if not bridge:
+            return {"state": "unavailable", "message": "online play is not included in this build"}
+        return bridge.status()
+
+    def eos_host(self):
+        if self._bridge():
+            self._eos.host()
+
+    def eos_join(self, code):
+        if self._bridge():
+            self._eos.join(code)
+
+    def eos_send(self, batch_json):
+        if self._eos:
+            self._eos.send_many(json.loads(batch_json))
+
+    def eos_stop(self):
+        if self._eos:
+            self._eos.stop()
+
+    def _shutdown(self):
+        """Leave any room before the process exits."""
+        if self._eos:
+            self._eos.stop()
+            self._eos.shutdown()
+            time.sleep(0.4)
 
 
 def run_native(url, windowed):
@@ -100,7 +168,7 @@ def run_native(url, windowed):
     except ImportError:
         return False
     api = DesktopApi()
-    api.window = webview.create_window(
+    api._window = webview.create_window(
         TITLE, url, js_api=api,
         width=1280, height=720, min_size=(640, 360),
         fullscreen=not windowed, background_color="#000000",
@@ -111,6 +179,8 @@ def run_native(url, windowed):
     except Exception as exc:  # e.g. no WebView2 runtime on very old systems
         log(f"Native window unavailable ({exc}); falling back to a browser window.")
         return False
+    finally:
+        api._shutdown()
     return True
 
 
@@ -146,19 +216,15 @@ def run_browser_fallback(url, windowed):
 
 
 def main():
-    lan = "--local" not in sys.argv  # LAN (network) play is the default
     windowed = "--windowed" in sys.argv
     os.chdir(HERE)
 
-    host = "0.0.0.0" if lan else "127.0.0.1"
-    port = free_port(GAME_PORT, host)
-    server = ThreadingHTTPServer((host, port), serve.GameHandler)
+    port = free_port(GAME_PORT)
+    server = ThreadingHTTPServer(("127.0.0.1", port), serve.GameHandler)
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://localhost:{port}/"
     log(f"{TITLE} running at {url}")
-    if lan:
-        log(f"Online players on your network can join via http://{serve.lan_address()}:{port}")
 
     try:
         if not run_native(url, windowed):

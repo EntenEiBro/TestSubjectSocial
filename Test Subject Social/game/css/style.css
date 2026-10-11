@@ -27,7 +27,7 @@ body { font-family: 'Special Elite', 'Courier New', monospace; color: var(--bone
   transform: translate(-50%, -50%);
   overflow: hidden; background: #050505;
 }
-#view, #remote-view { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; display: block; object-fit: fill; background: #050505; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; display: block; object-fit: fill; background: #050505; }
 
 /* Key caps for platform-specific button prompts (prompts.js) */
 kbd { display: inline-block; font-family: 'VT323', monospace; font-size: 1.05em; line-height: 1.05; padding: 0 0.35em; margin: 0 0.1em; color: var(--bone); background: rgba(216, 210, 192, 0.12); border: 1px solid rgba(216, 210, 192, 0.45); border-bottom-width: 2px; border-radius: 3px; white-space: nowrap; vertical-align: baseline; }
@@ -96,6 +96,7 @@ kbd { display: inline-block; font-family: 'VT323', monospace; font-size: 1.05em;
 #touch .t-a { right: calc(var(--u) * 6); bottom: calc(var(--u) * 10); width: calc(var(--u) * 20); height: calc(var(--u) * 20); font-size: calc(var(--u) * 8); }
 #touch .t-b { right: calc(var(--u) * 28); bottom: calc(var(--u) * 5); width: calc(var(--u) * 14); height: calc(var(--u) * 14); font-size: calc(var(--u) * 5.5); }
 #touch .t-small { pointer-events: auto; touch-action: none; font-family: 'VT323', monospace; font-size: calc(var(--u) * 3.2); color: var(--bone); background: rgba(10, 9, 8, 0.75); border: 1px solid #555; padding: calc(var(--u) * 0.8) calc(var(--u) * 1.8); }
+#touch.menu .t-stick-zone, #touch.menu .t-stick, #touch.menu .t-pause { display: none; } /* online client in menus: Ⓐ/Ⓑ only */
 #touch .t-pause { position: absolute; top: calc(var(--u) * 2); left: 50%; transform: translateX(-50%); margin-top: calc(var(--u) * 8.5); }
 
 /* Join-by-code screen (phones) */
@@ -107,7 +108,8 @@ kbd { display: inline-block; font-family: 'VT323', monospace; font-size: 1.05em;
 /* Online play */
 .net-badge { position: absolute; z-index: 61; left: 50%; bottom: calc(var(--u) * 2); transform: translateX(-50%); font-family: 'VT323', monospace; font-size: calc(var(--u) * 2.6); color: var(--crt); background: rgba(0,0,0,0.8); padding: calc(var(--u) * 0.5) calc(var(--u) * 2); border: 1px solid #1f5a2a; transition: opacity 1s; }
 .net-badge.fade { opacity: 0; }
-/* Host menus: join codes stay visible after HOST ONLINE. Client: ping indicator. */
+.net-badge.hidden { display: none; }
+/* Host menus: the room code stays visible after HOST ONLINE. Client: ping indicator. */
 .net-chip, .net-ping { position: absolute; z-index: 61; left: calc(var(--u) * 1.5); top: calc(var(--u) * 1.2); font-family: 'VT323', monospace; font-size: calc(var(--u) * 2.4); color: var(--bone); background: rgba(0,0,0,0.75); border: 1px solid #1f5a2a; padding: calc(var(--u) * 0.3) calc(var(--u) * 1.2); pointer-events: none; display: flex; align-items: center; gap: calc(var(--u) * 1); white-space: nowrap; }
 .net-chip b { color: var(--crt); font-weight: normal; letter-spacing: 0.1em; }
 .net-chip-dot { width: calc(var(--u) * 1); height: calc(var(--u) * 1); border-radius: 50%; background: var(--crt); box-shadow: 0 0 calc(var(--u) * 0.8) var(--crt); }

@@ -13,7 +13,7 @@
  *   &humans=N         how many of them are keyboard humans (default 0 = all bots)
  *   &quick            skip title card + briefing
  *   &loop             replay the chosen game forever (soak testing)
- *   ?join=CODE        open as an online client of a hosted room (see net/)
+ *   ?room=CODE        play as an online client in the host's room (see net/)
  */
 import { Engine, RESOLUTIONS } from './core/engine.js';
 import { InputManager } from './core/input.js';
@@ -29,7 +29,7 @@ import { REGISTRY, findGame } from './minigames/index.js';
 import { Commendations } from './game/achievements.js';
 import { NetHost } from './net/host.js';
 import { LockstepHost } from './net/lockstep.js';
-import { runClient, runInternetClient } from './net/client.js';
+import { runOnlineClient } from './net/client.js';
 import { TouchControls, isTouchDevice } from './ui/touch.js';
 import { Haptics } from './core/haptics.js';
 import { initInputMode } from './ui/prompts.js';
@@ -240,16 +240,9 @@ class App {
 
 // Wait (briefly) for the web fonts so canvas-painted stencils use them.
 const fontsReady = document.fonts ? document.fonts.load('80px "Black Ops One"').catch(() => {}) : Promise.resolve();
-// `?join=CODE` (LAN) or `?peer=CODE` (internet) turns this page into a remote
-// controller/viewer for an online host.
-const params = new URLSearchParams(location.search);
-const joinCode = params.get('join');
-const peerCode = params.get('peer');
-const start = () => {
-  if (peerCode) return runInternetClient(peerCode.toUpperCase());
-  if (joinCode) return runClient(joinCode.toUpperCase());
-  return new App().run();
-};
+// `?room=CODE` (set by JOIN ONLINE) turns this page into a remote player in that room.
+const roomCode = new URLSearchParams(location.search).get('room');
+const start = () => (roomCode ? runOnlineClient(roomCode.toUpperCase()) : new App().run());
 // In the desktop build pywebview injects its API shortly after load.
 const desktopReady = window.pywebview ? Promise.resolve()
   : new Promise((r) => { window.addEventListener('pywebviewready', r, { once: true }); setTimeout(r, 600); });

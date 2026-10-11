@@ -16,6 +16,10 @@ const GRAVITY = -22;
 const MAX_BODIES = 90; // oldest settled debris is culled beyond this
 const bloodMat = new THREE.MeshLambertMaterial({ color: 0x6e0505 });
 const dropGeo = new THREE.BoxGeometry(0.07, 0.07, 0.07);
+const poolMaterial = () => new THREE.MeshLambertMaterial({
+  map: Tex.blood(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
+});
+const smokeMaterial = (color, opacity) => new THREE.MeshLambertMaterial({ color, transparent: true, opacity, depthWrite: false });
 
 export class FX {
   /**
@@ -30,6 +34,34 @@ export class FX {
     this.drops = [];    // blood droplets
     this.decals = [];   // growing pools
     this.puffs = [];    // smoke / dust sprites
+    this.flash = null;  // reserved explosion light (reserveFlash)
+  }
+
+  /**
+   * One mesh per effect material, for Minigame.prewarm(): compiling their
+   * shaders before the round avoids a stall at the first death on phones.
+   * (The materials are never disposed, so their compiled shaders stay cached.)
+   */
+  samples() {
+    return [
+      new THREE.Mesh(dropGeo, bloodMat),
+      new THREE.Mesh(new THREE.PlaneGeometry(1, 1), poolMaterial()),
+      new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), smokeMaterial(0x9a9a9a, 0.5)),
+      new THREE.Mesh(dropGeo, new THREE.MeshBasicMaterial({ color: 0xffd27a })),
+    ];
+  }
+
+  /**
+   * Put the explosion light into the scene now (dark until explosion() uses
+   * it). Rounds with explosions call this in build(): a light that appears
+   * mid-round changes the light count, which recompiles every shader.
+   */
+  reserveFlash() {
+    if (!this.flash) {
+      this.flash = new THREE.PointLight(0xff9a3a, 0, 12);
+      this.scene.add(this.flash);
+    }
+    return this.flash;
   }
 
   // ---------------------------------------------------------------- primitives
@@ -60,9 +92,7 @@ export class FX {
     const floor = y ?? this.floorAt(x, z);
     if (!Number.isFinite(floor)) return;
     size *= 0.4 + 0.6 * FXSettings.gore;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshLambertMaterial({
-      map: Tex.blood(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
-    }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), poolMaterial());
     m.rotation.x = -Math.PI / 2;
     m.rotation.z = rand(0, Math.PI * 2);
     m.position.set(x, floor + 0.012 + Math.random() * 0.004, z);
@@ -73,7 +103,7 @@ export class FX {
 
   /** Grey smoke puff (cigarettes, engines, explosions). */
   smoke(pos, { color = 0x9a9a9a, size = 0.5, rise = 1.2, life = 2, opacity = 0.5, drift = null } = {}) {
-    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 0), new THREE.MeshLambertMaterial({ color, transparent: true, opacity, depthWrite: false }));
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 0), smokeMaterial(color, opacity));
     m.position.copy(pos);
     this.scene.add(m);
     this.puffs.push({ m, life, max: life, rise, opacity, drift: drift || new THREE.Vector3(rand(-0.2, 0.2), 0, rand(-0.2, 0.2)) });
@@ -93,18 +123,22 @@ export class FX {
 
   /** Large fiery explosion + smoke column. */
   explosion(pos, scale = 1) {
-    const flash = new THREE.PointLight(0xff9a3a, 80 * scale, 12 * scale);
+    let flash = this.flash;
+    if (flash) {
+      flash.intensity = 80 * scale;
+      flash.distance = 12 * scale;
+    } else {
+      flash = new THREE.PointLight(0xff9a3a, 80 * scale, 12 * scale);
+      this.scene.add(flash);
+    }
     flash.position.copy(pos).add(new THREE.Vector3(0, 0.5, 0));
-    this.scene.add(flash);
-    let t = 0;
-    this.puffs.push({ light: flash, life: 0.35, max: 0.35 });
+    this.puffs.push({ light: flash, life: 0.35, max: 0.35, keep: flash === this.flash });
     for (let i = 0; i < 10; i++) {
       this.smoke(pos.clone().add(new THREE.Vector3(rand(-0.6, 0.6), rand(0, 0.8), rand(-0.6, 0.6)).multiplyScalar(scale)), {
         color: i < 4 ? 0xff7a1a : 0x2a2a2a, size: rand(0.4, 0.9) * scale, rise: rand(1.5, 3), life: rand(0.6, 1.6), opacity: 0.85,
       });
     }
     this.sparks(pos, { count: 20, speed: 10 * scale });
-    void t;
   }
 
   // ------------------------------------------------------------- death styles
@@ -219,7 +253,11 @@ export class FX {
         p.m.scale.setScalar(1 + (1 - k) * 1.8);
         p.m.material.opacity = p.opacity * k;
       }
-      if (p.life <= 0) { this.scene.remove(p.light || p.m); this.puffs.splice(i, 1); }
+      if (p.life <= 0) {
+        if (p.keep) p.light.intensity = 0; // the reserved light stays (dark) for the next blast
+        else this.scene.remove(p.light || p.m);
+        this.puffs.splice(i, 1);
+      }
     }
   }
 }

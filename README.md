@@ -37,89 +37,72 @@ The **`Android Version`** folder holds everything needed to install the phone
 version: **`Test Subject Social.apk`** plus **`HOW TO INSTALL.txt`**. The app is:
 the same game with on-screen touch controls (floating joystick on the left,
 Ⓐ/Ⓑ on the right, pause at the top, +BOT/−BOT in the lobby). Bluetooth
-gamepads work too. Android 7.0 or newer, landscape, fully offline.
+gamepads work too. Android 7.0 or newer (64-bit ARM), landscape; only online
+play needs the internet.
 
 Install: copy the .apk to the phone (USB, cloud drive, messenger…), tap it
 and allow "install unknown apps" for that source when Android asks. Or plug
 the phone in with USB debugging enabled and run `python build_apk.py --install`.
 
-Online with a friend's phone (no PC needed): Host: **HOST ONLINE** → an
-**internet code** like `K7QPXW` appears — it works from anywhere with mobile
-data or any Wi-Fi. Friend: **JOIN ONLINE** → type the code → press Ⓐ in the
-lobby to take a seat. On the same Wi-Fi (or the host phone's hotspot) the LAN
-code like `QAYC-7K2P` also works without internet. The phone's back button
-leaves a friend's game (or pauses your own).
-
 Rebuild after changing the game: `python build_apk.py` (needs JDK 17, the
 Android SDK and Gradle 8.7 under `D:\AndroidDev`). The Android shell lives in
 `android/` (`MainActivity` = full-screen WebView, `GameServer` = built-in
-file server + online relay, the Java twin of `serve.py`); the game files are
-copied in from `Test Subject Social/game` at build time.
+file server, the Java twin of `serve.py`, `EosBridge` = online play); the game
+files are copied in from `Test Subject Social/game` at build time. The build
+needs the NDK (27.2) and CMake (3.22.1) for the online-play glue.
 
 ## Running from source
 
 Requirements: any modern desktop browser with WebGL. All third-party assets
-(three.js, fonts, PeerJS) are bundled in `game/vendor/`, so no internet is
-needed (except for internet online play).
+(three.js, fonts) are bundled in `game/vendor/`, so no internet is needed.
 Python 3 is only used as a static file server (it serves `Test Subject Social/game`).
 
 ```bash
 python serve.py
 ```
 
-Then open <http://localhost:8765>. The server listens on your local network
-by default (LAN play); add `--local` to restrict it to this computer.
+Then open <http://localhost:8765>. The server only listens on this computer.
 
-## Online play (internet + LAN)
+## Online play (Epic Online Services)
 
-Every round runs **on each player's own device**: the host sends the round's
-random seed and then everyone's inputs, 60 times per second, and every device
-simulates and renders the round itself ("deterministic lockstep"). No video
-during rounds, full local graphics, and the host's game never waits for a slow
-connection. Menus between rounds are mirrored from the host. PCs and phones
-mix freely. HOST ONLINE opens two rooms at once:
+**HOST ONLINE** on the title screen opens a room and shows a 6-letter code.
+Friends anywhere — PC or phone — choose **JOIN ONLINE**, type the code and
+take a seat in Subject Intake with their action button, next to the host's
+local players and bots. Nobody needs an account: every copy of the game
+logs in anonymously.
 
-- **Internet code** (6 letters, e.g. `K7QPXW`) — friends anywhere can join.
-  [PeerJS Cloud](https://peerjs.com) (free public broker at `0.peerjs.com`)
-  introduces the two devices; the game itself then flows directly between them.
-- **LAN code** (e.g. `QAYC-7K2P`) — same Wi-Fi / LAN or the host phone's
-  hotspot, works without internet. Every copy of the game listens on port 8765.
+How it works: a room is an [Epic Online Services](https://dev.epicgames.com/docs)
+lobby tagged with its code; the players then talk peer-to-peer through EOS
+P2P, which falls back to Epic's relay servers when routers block a direct
+connection. Rounds run on every device in **deterministic lockstep**: the host
+sends the round's seed and one input frame per tick, and each device
+simulates and renders the round itself (`net/lockstep.js`). Between rounds a
+client draws its own intake room and mirrors the host's menus and sounds.
 
-1. The host chooses **HOST ONLINE** and shares one of the codes.
-2. Friends choose **JOIN ONLINE** — on a PC or a phone — and type the code.
-   (Esc on a PC, or the phone's back button, leaves the friend's game.)
-3. In **Subject Intake** each joining player presses their action button to take
-   a seat and customizes their subject like a local player. Mix and match
-   local players, online players and bots in the same session.
+EOS is a native SDK, so each shell has a small bridge with the same commands
+(host, join, send, stop — see `net/eos.js`):
 
-On Windows, the first launch shows a **Windows Firewall** prompt — allow access
-on private networks, otherwise other devices on your LAN cannot reach your game.
+* Windows: `eos_bridge.py` (Python + ctypes) inside `play.py`
+* Android: `EosBridge.java` + `android/app/src/main/cpp/tss_eos.c` (JNI)
+* development: `python serve.py --eos` exposes the same bridge over HTTP, so
+  online play works in a browser; `--fresh-id` gives a second server its own
+  identity, and `--peer-bridge=PORT` serves `/__duo.html` (host and second
+  player side by side in one tab, open it via 127.0.0.1)
 
-While hosting, the codes stay visible in a corner badge on every menu
-(with each online player's ping). When a program ends or is aborted, everyone
-returns to **Subject Intake** with their seats kept. Joining players see their
-ping in the top-left corner (`RELAY` means the link runs through a relay
-server, which is slower). If a connection drops, the joining player
-reconnects automatically and gets their seat back; while they are away their
-subject stands idle and the game does not wait for them.
+The EOS SDK and the product IDs are **not in this repository**. To build with
+online play, download the EOS C SDK (Windows + Android) from the Epic
+Developer Portal into `EOS/win/SDK` and `EOS/android/SDK`, and put the
+product's IDs into `eos_config.json` in the project root:
 
-Technical notes: internet rooms use the bundled PeerJS library
-(`game/vendor/peerjs`, MIT) for signaling only — the host registers the id
-`test-subject-social-<code>`, and a PeerJS data connection carries the WebRTC
-offer. LAN rooms carry it over the tiny WebSocket relay in `serve.py`
-(standard library only) / the Android app's `GameServer`. Both then use one
-RTCPeerConnection per player with these channels: `input` (controller state,
-unordered, no retransmits), `sim` (round control: seed, rebuild, end) and
-`frames` (numbered input frames; each packet repeats the last 8 ticks, gaps
-are resent), plus `ui` (menu/HUD snapshots) and video for the menus.
-Lockstep details are in `src/net/lockstep.js`: simulation code takes its
-randomness from the seeded `core/rng.js` and its time from the game clock, so
-the same seed and inputs give the same round on every device; the host sends a
-state checksum every half second, and a client that ever disagrees falls back
-to the host's video for the rest of that round. A joining player's own input
-shows up after one network round-trip. Very strict networks (some corporate or
-mobile carriers) force traffic through PeerJS's free TURN relay, which is
-slower; then prefer the LAN code or a hotspot.
+```json
+{ "productName": "Test Subject Social", "productVersion": "1.0",
+  "productId": "…", "sandboxId": "…", "deploymentId": "…",
+  "clientId": "…", "clientSecret": "…" }
+```
+
+`build_exe.py` then copies the SDK runtime and the config into
+`Test Subject Social/eos/`, and `build_apk.py` builds them into the APK
+(arm64 phones). Without them both builds still work, offline only.
 
 ## Controls
 
@@ -186,8 +169,9 @@ removes one, **Esc** goes back. **Esc** during a round opens the pause menu
 Project root (tooling):
 
 ```
-serve.py              no-cache static server + WebSocket signaling relay (stdlib only)
+serve.py              no-cache static file server (stdlib only; --eos: online bridge for dev)
 play.py               desktop launcher: server + Edge/Chrome app window, quits with it
+eos_bridge.py         Epic Online Services via ctypes: login, room codes, P2P messages
 build_exe.py          rebuilds the launcher (.exe + _internal) in "Test Subject Social/"
 tools/make_icon.py    generates game/icon.png and icon.ico (stdlib only)
 icon.ico              .exe icon used by the build
@@ -198,6 +182,7 @@ icon.ico              .exe icon used by the build
 ```
 Test Subject Social.exe   launcher
 _internal/                Python runtime for the launcher
+eos/                      EOS SDK runtime + product IDs (online play; added by the build)
 README.txt                how to play
 game/                     ALL game files (single copy — edit here)
 ```
@@ -220,7 +205,7 @@ src/core/             engine-level, game-agnostic modules
   physics.js          top-down arena movement, collisions, shove
   environment.js      reusable set dressing (rooms, pipes, monitors, stencils, fans)
   ai.js               bot steering helpers
-  rng.js              seeded random generator for simulation code (lockstep-safe)
+  rng.js              seeded random generator for simulation code (reproducible rounds)
   util.js             math/random/timer helpers (Math.random: cosmetic use only)
 src/game/
   players.js          roster, customization, placement points table
@@ -230,12 +215,11 @@ src/ui/
   hud.js              in-round HUD (timer, panels, banners, kill feed, name tags)
   backdrop.js         3D intake room behind the menus
 src/net/
-  signal.js           LAN relay WebSocket wrapper, room codes, WebRTC config
-  joincode.js         LAN join codes (room + host address) and internet codes
-  host.js             NetHost: LAN + PeerJS rooms, menu mirroring, remote input, round control
+  eos.js              link to the native EOS bridge (desktop / Android / dev server)
+  host.js             NetHost: room, remote players' input, menu mirroring, round control
   lockstep.js         deterministic lockstep: host tick driver, client follower, checksums
   remoteround.js      a client's own copy of the current round (build, simulate, render, HUD)
-  client.js           remote-player page (?join=ROOM LAN / ?peer=CODE internet)
+  client.js           remote-player page (?room=CODE)
 src/minigames/
   base.js             Minigame base class (the contract every round implements)
   index.js            registry (add new rounds here)
@@ -270,6 +254,6 @@ directly with bots: `http://localhost:8765/?game=mygame&quick`
 ## Credits
 
 Original code and procedural content. Rendering: [three.js](https://threejs.org) (MIT).
-Internet play: [PeerJS](https://peerjs.com) (MIT).
+Online play: [Epic Online Services](https://dev.epicgames.com/docs) (EOS SDK, not redistributed in this repository).
 Fonts: Black Ops One and VT323 (SIL Open Font License 1.1), Special Elite
 (Apache License 2.0), bundled from Google Fonts — license texts in `game/vendor/`.
