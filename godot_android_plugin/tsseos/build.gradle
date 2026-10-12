@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.library'
+}
+
+// The EOS SDK and the product IDs are not in the git repository (EOS/ = the
+// SDK download, eos_config.json = the IDs from the EOS portal). The JNI glue
+// (tss_eos.c) is shared with the old WebView app in ../android.
+def eosAar = file("${rootDir}/../EOS/android/SDK/Bin/Android/static-stdc++/aar/eossdk-StaticSTDC-release.aar")
+def eosInclude = file("${rootDir}/../EOS/android/SDK/Include")
+def eosConfig = file("${rootDir}/../eos_config.json")
+def eosUnpacked = layout.buildDirectory.dir("unpacked/eossdk")
+def eosAssets = layout.buildDirectory.dir("generated/eosAssets")
+def godotVersion = '4.7.2.stable'
+
+android {
+    namespace 'com.testsubjectsocial.game.eos'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        ndk { abiFilters 'arm64-v8a' }   // the EOS SDK ships 64-bit ARM builds
+        externalNativeBuild {
+            cmake { arguments "-DEOS_AAR_DIR=${eosUnpacked.get().asFile}", "-DEOS_INCLUDE_DIR=${eosInclude}" }
+        }
+        // Required by the SDK's manifest (Epic account login, unused here).
+        def clientId = new groovy.json.JsonSlurper().parse(eosConfig).clientId
+        resValue 'string', 'eos_login_protocol_scheme', "eos.${clientId.toLowerCase()}"
+    }
+
+    ndkVersion '27.2.12479018'
+    externalNativeBuild {
+        cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' }
+    }
+
+    sourceSets {
+        main { assets.srcDirs += eosAssets }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    compileOnly "org.godotengine:godot:${godotVersion}"
+    compileOnly files(eosAar)
+}
+
+// libEOSSDK.so + headers for linking the JNI glue.
+def unzipEosAar = tasks.register('unzipEosAar', Copy) {
+    from zipTree(eosAar)
+    include 'jni/**'
+    into eosUnpacked
+}
+// The product IDs as assets/eos/eos_config.json (read by EosBridge).
+def copyEosConfig = tasks.register('copyEosConfig', Copy) {
+    from eosConfig
+    into eosAssets.map { it.dir('eos') }
+}
+tasks.named('preBuild') { dependsOn unzipEosAar, copyEosConfig }

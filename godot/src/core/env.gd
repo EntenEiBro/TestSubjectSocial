@@ -8,8 +8,9 @@ class_name Env
 ## usually looks toward -Z); Godot's axes match THREE's.
 
 ## Light intensity conversion (THREE candela-style values → Godot energy).
-const LIGHT_K := 0.33
-const AMBIENT_K := 0.55
+## Tuned ~15% darker than a straight conversion (moodier, as requested).
+const LIGHT_K := 0.28
+const AMBIENT_K := 0.46
 
 static var shadows_enabled := true   # set from settings (off on phones)
 static var _font: Font = null
@@ -327,7 +328,7 @@ static func mood_scene(opts: Dictionary = {}) -> Node3D:
 	# The hemisphere light's top-down part: a soft shadowless fill from above.
 	var fill := DirectionalLight3D.new()
 	fill.light_color = U.col(0x9a9a8a)
-	fill.light_energy = 0.18
+	fill.light_energy = 0.15
 	fill.rotation = Vector3(-PI / 2, 0, 0)
 	fill.shadow_enabled = false
 	fill.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY

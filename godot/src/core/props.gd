@@ -21,7 +21,22 @@ static func _template(game_id: String) -> Node:
 
 static func has(game_id: String, part: String) -> bool:
 	var t := _template(game_id)
-	return t != null and Subject._find(t, part) != null
+	return t != null and _find_part(t, game_id, part) != null
+
+
+## The named part below the game's root empty (which is named like the game,
+## as is the glb's own root node; a part with that same name is still found).
+static func _find_part(t: Node, game_id: String, part: String) -> Node:
+	var root: Node = t
+	while root.name == game_id and root.get_child_count() == 1 and root.get_child(0).name == game_id:
+		root = root.get_child(0)
+	if root.name == game_id:
+		for c in root.get_children():
+			var f := Subject._find(c, part)
+			if f:
+				return f
+		return null
+	return Subject._find(root, part)
 
 
 ## A new instance of the named part (transform reset to identity), or null.
@@ -30,7 +45,7 @@ static func make(game_id: String, part: String) -> Node3D:
 	if t == null:
 		push_error("Props: missing %s.glb" % game_id)
 		return null
-	var src := Subject._find(t, part) as Node3D
+	var src := _find_part(t, game_id, part) as Node3D
 	if src == null:
 		push_error("Props: %s has no part '%s'" % [game_id, part])
 		return null

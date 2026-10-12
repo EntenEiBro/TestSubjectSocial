@@ -7,6 +7,7 @@ param([string]$Extra = "", [int]$Timeout = 90, [int]$Wait = 900)
 # or is stopped after -Timeout seconds). Without the editor it runs a
 # standalone visible window instead.
 $proj = Split-Path -Parent $PSScriptRoot
+$startTime = Get-Date
 $editor = Get-CimInstance Win32_Process -Filter "Name like 'Godot%'" | Where-Object { $_.CommandLine -match "--editor" -and $_.CommandLine -match [regex]::Escape((Split-Path -Leaf $proj)) }
 if (-not $editor) {
   & (Join-Path $PSScriptRoot "run.ps1") -Visible -Extra $Extra -Timeout $Timeout
@@ -26,6 +27,12 @@ Remove-Item "$live\done\$id" -ErrorAction SilentlyContinue
 if ($Extra -match "--shot=(\S+)") {
   $shot = $Matches[1]
   $base = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($shot), [System.IO.Path]::GetFileNameWithoutExtension($shot))
-  Get-ChildItem "$base*.png" -ErrorAction SilentlyContinue | ForEach-Object { "screenshot $($_.FullName)" }
+  $shots = @(Get-ChildItem "$base*.png" -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt $startTime })
+  $shots | ForEach-Object { "screenshot $($_.FullName)" }
+  if ($shots.Count -eq 0) {
+    # Usually a script error somewhere in the project stopped the game: show what the editor saw.
+    "!!! no screenshots were written. Last editor output:"
+    Get-Content (Join-Path $live "editor.log") -Tail 25 -ErrorAction SilentlyContinue
+  }
 }
 "--- played (editor)"

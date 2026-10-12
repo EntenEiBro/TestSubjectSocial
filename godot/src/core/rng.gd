@@ -52,9 +52,10 @@ static func rand_int(a: int, b: int) -> int:
 
 ## Pick one random element from an array.
 static func pick(arr: Array) -> Variant:
+	var r := random()   # drawn even for an empty array, like the JS version (keeps sequences aligned)
 	if arr.is_empty():
 		return null
-	return arr[int(floor(random() * arr.size()))]
+	return arr[int(floor(r * arr.size()))]
 
 
 ## Return a new, Fisher-Yates shuffled copy of `arr`.

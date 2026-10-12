@@ -34,6 +34,9 @@ var _play_started := 0.0
 
 
 func _enter_tree() -> void:
+	# Only the visible editor serves requests (headless exports / imports load plugins too).
+	if DisplayServer.get_name() == "headless":
+		return
 	for sub in ["import", "play", "done"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(LIVE + "/" + sub))
 	var ignore := ProjectSettings.globalize_path(LIVE + "/.gdignore")

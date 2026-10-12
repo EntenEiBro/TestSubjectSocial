@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/hat_test.gd" id="1_hattest"]
+
+[node name="HatTest" type="Node3D"]
+script = ExtResource("1_hattest")

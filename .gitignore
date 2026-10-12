@@ -29,3 +29,24 @@ EOS/
 eos_config.json
 Test Subject Social/eos/
 
+
+# Godot port: build outputs and files containing the EOS SDK / product IDs
+build/godot/
+build/eos_sidecar/
+godot/addons/tss_eos/bin/
+godot_android_plugin/.gradle/
+godot_android_plugin/tsseos/build/
+godot_android_plugin/tsseos/.cxx/
+godot_android_plugin/local.properties
+godot_android_plugin/build/
+godot/android/build/build/
+godot/android/build/.gradle/
+godot/android/build/assetPackInstallTime/src/main/assets/
+godot/android/build/local.properties
+
+# Godot Android build template: only the two files patched for online play are kept
+# (the rest comes from the export templates: Project > Install Android Build Template)
+!godot/android/build/
+godot/android/build/*
+!godot/android/build/build.gradle
+!godot/android/build/config.gradle

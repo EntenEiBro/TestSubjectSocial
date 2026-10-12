@@ -7,6 +7,7 @@ class_name Mats
 ## `extra` keys (all optional):
 ##   opacity: float (enables alpha)   transparent: bool    double_side: bool
 ##   depth_write: false               emissive: color      emissive_intensity: float
+##   emissive_map: tex ref / Texture2D (multiplied with emissive, like THREE's emissiveMap)
 ##   additive: true                   no_fog: true         shadeless: true
 ## Colours are 0xRRGGBB ints, "#rrggbb" strings or Color.
 
@@ -56,6 +57,12 @@ static func _apply_extra(m: StandardMaterial3D, extra: Dictionary) -> void:
 		m.emission_enabled = true
 		m.emission = U.col(extra.emissive)
 		m.emission_energy_multiplier = float(extra.get("emissive_intensity", 1.0))
+	if extra.has("emissive_map"):
+		# THREE multiplies emissive colour and emissiveMap; Godot adds them by default.
+		m.emission_enabled = true
+		m.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+		var em = extra.emissive_map
+		m.emission_texture = em.tex if em is Dictionary else em
 	if extra.get("additive", false):
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

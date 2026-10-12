@@ -1,0 +1,19 @@
+// Godot Android plugin "TssEos": online play (Epic Online Services) for the
+// Godot version of Test Subject Social. Builds tsseos/build/outputs/aar/*.aar,
+// which tools/build_android_plugin.py copies into godot/addons/tss_eos/bin.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "TssEosPlugin"
+include ':tsseos'

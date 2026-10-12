@@ -30,6 +30,7 @@ var view: TextureRect
 var hud: Hud
 var overlay_layer: CanvasLayer
 var overlay: Control          # screens put their content here
+var overlay_cls := ""         # current backdrop treatment (mirrored to online clients)
 var overlay_bg: ColorRect
 var overlay_grad: TextureRect
 var toast_layer: CanvasLayer
@@ -55,6 +56,7 @@ var _cam_offset := Vector2.ZERO
 var _current_scene: Node3D = null
 var _grain_mat: ShaderMaterial
 var _time := 0.0
+var game_clock := 0.0         # sum of frame dt since start (tests time their screenshots by it)
 
 
 func _ready() -> void:
@@ -80,9 +82,14 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		if args.has("screen") and int(args.screen) < DisplayServer.get_screen_count():
 			DisplayServer.window_set_current_screen(int(args.screen))
-		var w := int(DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen()).size.x * 0.6)
+		var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+		var w := int(usable.size.x * (0.48 if args.has("half") else 0.6))
 		DisplayServer.window_set_size(Vector2i(w, w * 9 / 16))
-	if platform == "desktop" and DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
+		if args.has("half"):
+			# Two instances side by side (online tests): --half=left | right.
+			var x := usable.position.x + (usable.size.x / 2 if str(args.half) == "right" else 0) + int(usable.size.x * 0.01)
+			DisplayServer.window_set_position(Vector2i(x, usable.position.y + (usable.size.y - w * 9 / 16) / 2))
+	if platform == "desktop" and DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED and not args.has("half"):
 		_fit_window()
 	get_viewport().size_changed.connect(_resize)
 	_resize()
@@ -187,7 +194,7 @@ func _build_tree() -> void:
 	sh.code = """shader_type canvas_item;
 void fragment() {
 	vec2 d = (UV - vec2(0.5)) * vec2(1.0, 0.75);
-	COLOR = vec4(0.0, 0.0, 0.0, smoothstep(0.34, 0.70, length(d)) * 0.55);
+	COLOR = vec4(0.0, 0.0, 0.0, smoothstep(0.30, 0.68, length(d)) * 0.62);
 }"""
 	_grain_mat = ShaderMaterial.new()
 	_grain_mat.shader = sh
@@ -276,14 +283,17 @@ func _process(delta: float) -> void:
 
 ## One frame of the app (also used by tests to fast-forward).
 func frame(dt: float) -> void:
+	game_clock += dt
+	Net.pump()        # online input lands in the "net<N>" controllers before they are committed
 	Inputs.update()
-	Net.pump()
 	for entry in _frame_handlers.duplicate():
 		if entry in _frame_handlers:
 			entry[0].call(dt)
 	if game and is_instance_valid(game) and not paused:
-		if game.lockstep and Net.lockstep_active():
-			Net.lockstep_update(dt)
+		if game.lockstep:
+			# Online round: frozen until tick 0, then driven at the fixed lockstep rate.
+			if Net.lockstep_active():
+				Net.lockstep_update(dt)
 		else:
 			game.tick(dt)
 		var pause_pressed := Inputs.key_pressed("Escape") or Inputs.action_pressed("pause") or Inputs.any_pad_pressed(9)
@@ -321,6 +331,7 @@ func set_overlay(content: Control, cls: String = "") -> void:
 
 
 func set_overlay_class(cls: String) -> void:
+	overlay_cls = cls
 	overlay_grad.visible = cls == "title"
 	match cls:
 		"dim":
@@ -445,13 +456,20 @@ func _notification(what: int) -> void:
 # ---------------------------------------------------------------------- flows
 
 func run() -> void:
-	if args.has("room"):
-		await Net.run_client(self, str(args.room).to_upper())
+	if str(args.get("nettest", "")) == "host":
+		await _net_test_host()
 		return
 	if args.has("game"):
 		await quick_launch()
 		return
-	await screens.intro_screen()
+	if args.has("program"):
+		await _program_demo()
+		return
+	if args.has("room"):
+		# Started straight into a room (testing): back to the title screen afterwards.
+		await Net.run_client(self, EosLink.parse_room_code(str(args.room)))
+	else:
+		await screens.intro_screen()
 	while true:
 		var choice: String = await screens.title_screen()
 		match choice:
@@ -501,6 +519,23 @@ func run() -> void:
 		Net.stop_hosting()
 
 
+## Whole program with bots (--program=original|arcade [--players=N] [--humans=N] [--quick]):
+## the real flow (roulette, rounds, points screens, final ceremony), e.g. to watch
+## every minigame play through, then back to the title screen.
+func _program_demo() -> void:
+	var n := int(args.get("players", 4))
+	var humans := int(args.get("humans", 0))
+	var devices := ["kb1", "kb2", "pad0", "pad1"]
+	players = []
+	for i in n:
+		players.append(Player.new(i, devices[i] if i < humans else "bot"))
+	quick = args.has("quick")
+	await flow.play_program(str(args.program))
+	print("PROGRAM done: ", players.map(func(p): return "%s=%d" % [p.name(), p.score]))
+	if args.has("test"):
+		get_tree().quit()
+
+
 ## Debug path: jump straight into a simulation with bots (and --test).
 func quick_launch() -> void:
 	var G = Registry.find(str(args.game))
@@ -530,18 +565,83 @@ func quick_launch() -> void:
 	await screens.standings(players)
 
 
+## Online test, host side (--nettest=host [--game=id]): open a room, write its code to
+## user://nettest_code.txt, wait for one client, play one lockstep round with it
+## (+ 2 bots), print NETTEST lines, close the room and quit. The client side is a
+## second instance started with --room=<code> --nettest=client --eos-fresh.
+func _net_test_host() -> void:
+	Net.start_hosting()
+	var t0 := Time.get_ticks_msec()
+	while Net.status == "connecting" and Time.get_ticks_msec() - t0 < 30000:
+		await get_tree().process_frame
+	if Net.status != "hosting":
+		print("NETTEST host error: ", Net.error)
+		get_tree().quit(3)
+		return
+	var f := FileAccess.open("user://nettest_code.txt", FileAccess.WRITE)
+	f.store_string(Net.code)
+	f.close()
+	print("NETTEST code=", Net.code, " file=", ProjectSettings.globalize_path("user://nettest_code.txt"))
+	t0 = Time.get_ticks_msec()
+	while Net.connected_count() == 0 and Time.get_ticks_msec() - t0 < 120000:
+		await get_tree().process_frame
+	if Net.connected_count() == 0:
+		print("NETTEST host: no client joined")
+		get_tree().quit(4)
+		return
+	var dev: int = Net.players.values()[0].dev
+	print("NETTEST client joined as net", dev)
+	quick = true
+	if args.has("lobby"):
+		# Through the real lobby: the client takes seat 2 by tapping the mirrored card.
+		players = [Player.new(0, "bot")]
+		get_tree().create_timer(6.0).timeout.connect(func(): snap("user://nettest_host_lobby.png"))
+		var roster = await screens.lobby_screen()
+		if roster == null:
+			print("NETTEST host: lobby left")
+			get_tree().quit(5)
+			return
+		players = roster
+		print("NETTEST lobby roster ", players.map(func(p): return "%s@%d" % [p.device, p.slot]))
+	else:
+		players = [Player.new(0, "net%d" % dev), Player.new(1, "bot"), Player.new(2, "bot")]
+	var G = Registry.find(str(args.get("game", "sawblade")))
+	await get_tree().create_timer(1.0).timeout
+	var outcome: String = await flow.play_round(G, 0, 1)
+	var places := []
+	for r in (last_results if last_results else []):
+		places.append("%s:%d" % [r.player.device, r.place])
+	print("NETTEST host round ", outcome, " frames=", Net.lockstep.frames.size(), " places=", places)
+	await get_tree().create_timer(1.0).timeout
+	Net.stop_hosting()
+	await get_tree().create_timer(1.0).timeout
+	get_tree().quit()
+
+
+## Save a screenshot of the window now (tests).
+func snap(path: String) -> void:
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	print("screenshot ", ProjectSettings.globalize_path(path))
+
+
 ## --shot=<file.png> --shot-at=2,5.5,9 saves one screenshot per time (file_1.png …), then quits.
+## Times are game time (the frame clock the rounds run on), so a slow machine
+## still captures the intended moments; PNGs are encoded on a worker thread so
+## saving doesn't freeze the game between shots.
 func _screenshot_later(path: String, times: String) -> void:
 	var at := Array(times.split(",")).map(func(s): return float(s))
-	var start := Time.get_ticks_msec() / 1000.0
+	var tasks := []
 	for i in at.size():
-		var wait: float = at[i] - (Time.get_ticks_msec() / 1000.0 - start)
-		if wait > 0.0:
-			await get_tree().create_timer(wait).timeout
+		while game_clock < float(at[i]):
+			await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		var file := path if at.size() == 1 else path.get_basename() + "_%d.png" % (i + 1)
-		get_viewport().get_texture().get_image().save_png(file)
+		var img := get_viewport().get_texture().get_image()
+		tasks.append(WorkerThreadPool.add_task(func(): img.save_png(file)))
 		print("screenshot ", file)
+	for id in tasks:
+		WorkerThreadPool.wait_for_task_completion(id)
 	get_tree().quit()
 
 
@@ -558,7 +658,7 @@ func _run_test(G) -> void:
 		g.prewarm()
 		set_scene(g, g.camera)
 		g.state = "preview"
-		game = g
+		game = null   # ticked only by this loop (frame() must not add real-time ticks: determinism)
 		g.begin()
 		var steps := 0
 		var t0 := Time.get_ticks_msec()

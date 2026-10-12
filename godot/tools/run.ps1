@@ -12,7 +12,7 @@ $argList += @("--path", "`"$proj`"", "--quit-after", "$Frames")
 if ($Extra -ne "") { $argList += "--"; $argList += $Extra.Split(" ") }
 $p = Start-Process -FilePath $godot -ArgumentList $argList -NoNewWindow -PassThru -RedirectStandardOutput "$tmp.out" -RedirectStandardError "$tmp.err"
 if (-not $p.WaitForExit($Timeout * 1000)) { $p.Kill(); "!!! TIMEOUT after $Timeout s (killed)" }
-$pat = "ERROR|WARNING|TEST_RESULT|screenshot|Invalid|Nonexistent|^fps|^DBG"
+$pat = "ERROR|WARNING|TEST_RESULT|NETTEST|screenshot|Invalid|Nonexistent|^fps|^DBG|^\[eos\]|^\[net\]"
 $skip = "PagedAllocator|leaked|Leaked|never freed|GL ID|resources still in use|~Dependency|invalid UID"
 $seen = @{}
 $n = 0

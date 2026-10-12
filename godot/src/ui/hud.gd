@@ -112,10 +112,12 @@ func set_players(seats: Array) -> void:
 		i += 1
 
 
+## Show a countdown (seconds); -1 hides it (JS null). Values just below 0 show 0:00.
 func set_timer(sec: float) -> void:
-	if sec < 0.0:
+	if sec <= -1.0:
 		timer_label.visible = false
 		return
+	sec = maxf(0.0, sec)
 	timer_label.visible = true
 	timer_label.text = U.format_time(sec)
 	if sec <= 5.0:

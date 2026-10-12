@@ -219,6 +219,7 @@ def uv_faces(bm, world=None):
     texture repeat per face); world=k tiles k repeats per metre instead."""
     layer = bm.loops.layers.uv.verify()
     for f in bm.faces:
+        f.normal_update()   # faces made by hand (bm_plane, bm_circle) have no normal yet
         n = f.normal
         ax = max(range(3), key=lambda i: abs(n[i]))
         a, b = [(1, 2), (0, 2), (0, 1)][ax]

@@ -533,7 +533,8 @@ func online_screen() -> Variant:
 		if r_ref.r:
 			r_ref.r.finish(null))
 	render.call()
-	return await run_screen(UI.center(p.root), "dim", func(dt, r):
+	app.overlay.set_meta("online_code", true)   # the corner room-code badge stays hidden here
+	var result = await run_screen(UI.center(p.root), "dim", func(dt, r):
 		r_ref.r = r
 		render.call()
 		if Inputs.join_pressed() != "" and Net.has_method("host_status") and Net.host_status() == "hosting":
@@ -542,6 +543,8 @@ func online_screen() -> Variant:
 		elif Inputs.back_pressed() != "":
 			Sfx.play("back")
 			r.finish(null))
+	app.overlay.remove_meta("online_code")
+	return result
 
 
 ## JOIN ONLINE: type the host's room code; joining hands over to the online client.
@@ -688,26 +691,30 @@ func lobby_screen() -> Variant:
 	title.position = Vector2(-500, UI.u(3))
 	title.size = Vector2(1000, UI.u(8))
 	root.add_child(title)
+	# Seat cards, status, buttons and hint stack up from the bottom edge and size
+	# themselves (taller cards push the column up instead of overlapping).
+	var bottom := VBoxContainer.new()
+	bottom.add_theme_constant_override("separation", UI.u(0.8))
+	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bottom.offset_left = 1280 * 0.04
+	bottom.offset_right = -1280 * 0.04
+	bottom.offset_bottom = -UI.u(1.5)
+	root.add_child(bottom)
 	var slots_box := HBoxContainer.new()
 	slots_box.add_theme_constant_override("separation", UI.u(1.6))
-	slots_box.position = Vector2(1280 * 0.04, 720 - UI.u(2) - UI.u(16) - UI.u(32))
-	slots_box.size = Vector2(1280 * 0.92, UI.u(32))
 	slots_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(slots_box)
+	bottom.add_child(slots_box)
 	var status := UI.rich("", "vt", 2.8, UI.HAZARD)
-	status.position = Vector2(140, 720 - UI.u(15))
-	status.custom_minimum_size = Vector2(1000, 0)
-	root.add_child(status)
+	bottom.add_child(status)
 	var addbot := UI.tap_btn(t("+ BOT"), false, 2.6)
 	var rembot := UI.tap_btn(t("− BOT"), false, 2.6)
 	var backb := UI.tap_btn(t("BACK"), false, 2.6)
-	var actions := UI.hbox([addbot, rembot, backb], 1.5)
-	actions.position = Vector2(340, 720 - UI.u(10.5))
-	actions.size = Vector2(600, UI.u(5))
-	root.add_child(actions)
+	bottom.add_child(UI.hbox([addbot, rembot, backb], 1.5))
 	var hint := _hint(I18n.tp("JOIN {A} · CUSTOMIZE {MOVE} · LEAVE {B} · ADD BOT {ADDBOT} · REMOVE BOT {REMBOT} · BACK {BACK}"))
-	hint.position = Vector2(190, 720 - UI.u(4.5))
-	root.add_child(hint)
+	hint.add_theme_font_size_override("normal_font_size", UI.u(2.3))
+	bottom.add_child(hint)
 
 	var add_bot := func():
 		var slot: int = free_slot.call()
@@ -888,6 +895,7 @@ func _slot_card(roster: Array, i: int, cursor: Dictionary, tap_join: bool, on_ta
 		var lbl := UI.rich(t("TAP HERE<br>TO VOLUNTEER") if tap_join else I18n.tp("PRESS {A}<br>TO VOLUNTEER"), "vt", 2.8, UI.BONE_DIM)
 		col.add_child(lbl)
 		card.mouse_filter = Control.MOUSE_FILTER_STOP
+		card.set_meta("tap", "join:%d" % i)   # online clients tap the mirrored card (UiMirror)
 		card.gui_input.connect(func(e):
 			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 				on_tap.call("join:%d" % i))
@@ -897,6 +905,7 @@ func _slot_card(roster: Array, i: int, cursor: Dictionary, tap_join: bool, on_ta
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var x := UI.tap_btn("✕", false, 2.2)
 	x.pressed.connect(func(): on_tap.call("leave:%d" % i))
+	x.set_meta("tap", "leave:%d" % i)
 	head.add_child(nm)
 	head.add_child(x)
 	col.add_child(head)
@@ -927,12 +936,15 @@ func _slot_card(roster: Array, i: int, cursor: Dictionary, tap_join: bool, on_ta
 		if f == "ready":
 			var rb := UI.tap_btn(("✔ " + t("READY")) if p.ready else (t("TAP") if p.device == "touch" else I18n.key_text("A")), p.ready, 2.2)
 			rb.pressed.connect(func(): on_tap.call("ready:%d" % i))
+			rb.set_meta("tap", "ready:%d" % i)
 			h.add_child(rb)
 		else:
 			var dec := UI.tap_btn("◂", false, 2.0)
 			var inc := UI.tap_btn("▸", false, 2.0)
 			dec.pressed.connect(func(): on_tap.call("dec:%d:%s" % [i, f]))
 			inc.pressed.connect(func(): on_tap.call("inc:%d:%s" % [i, f]))
+			dec.set_meta("tap", "dec:%d:%s" % [i, f])
+			inc.set_meta("tap", "inc:%d:%s" % [i, f])
 			var v := UI.label(p.look_label(f), "vt", 2.4, UI.BONE)
 			v.custom_minimum_size.x = UI.u(13)
 			v.clip_text = true

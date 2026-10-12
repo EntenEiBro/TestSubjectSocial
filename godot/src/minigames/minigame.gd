@@ -249,6 +249,7 @@ func tick(dt: float) -> void:
 func prewarm() -> void:
 	if scene == null:
 		return
+	_warm_up()
 	var lights := []
 	_collect_lights(scene, lights)
 	for light in lights:
@@ -259,6 +260,39 @@ func prewarm() -> void:
 		scene.add_child(light)
 		_lights.append({"light": light, "anchor": anchor, "hidden": false, "saved": light.light_energy})
 	_sync_lights()
+
+
+## Shader warm-up: draw one tiny sample of every effect material (blood, pools,
+## smoke, sparks) and one avatar per seat right in front of the camera while the
+## title card / briefing is up, then remove them. Phones compile a shader the
+## first time it is drawn; this keeps those stalls out of the round. Cosmetic
+## only (no Rng, removed on a real-time timer), so lockstep stays identical.
+func _warm_up() -> void:
+	if camera == null or fx == null or DisplayServer.get_name() == "headless":
+		return
+	var warm := Node3D.new()
+	warm.name = "ShaderWarmup"
+	warm.position = Vector3(0, 0, -0.6)
+	warm.scale = Vector3.ONE * 0.01
+	camera.add_child(warm)
+	var x := -0.4
+	for m in fx.samples():
+		m.position.x = x
+		warm.add_child(m)
+		x += 0.2
+	var avatars := []
+	for seat in seats:
+		var s := Subject.for_player(seat.player)
+		s.root.position.x = x
+		warm.add_child(s.root)
+		avatars.append(s)
+		x += 0.2
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.create_timer(0.6).timeout.connect(func():
+		for s in avatars:
+			s.dispose()
+		if is_instance_valid(warm):
+			warm.queue_free())
 
 
 func _collect_lights(node: Node, out: Array) -> void:
