@@ -33,9 +33,17 @@ by script. Updated 2026-10-12 (session paused at 20:20).
   - `blender/build.ps1 -Games "<ids>"`: visible Blender build that closes itself.
 - **Porting guide for workers:** `godot/PORTING.md`.
 
-## Next
-1. Finish the remaining minigames (see the table), then do one full-program playthrough.
-2. Android: install the APK on the Pixel 10 and test (no phone screenshots: ask the user to look). Then test online between PC and phone.
-3. Windows: export, copy the `eos/` helper folder, and test the exe.
-4. Final release builds; update the README / HOW TO INSTALL for the Godot version.
-5. **The user asked to remove the web version once the Godot version is done.** Confirm what exactly (phone app, web code in the repo, GitHub releases) before deleting anything.
+## Released
+**v2.0.0 was released on 2026-11-13:** https://github.com/EntenEiBro/TestSubjectSocial/releases/tag/v2.0.0
+- **Assets:** a Windows zip with the exe, the `eos` folder, README and licenses, and an APK (`com.testsubjectsocial.game`, versionCode 10, installs over v1.x).
+- **Tested:**
+  - 120 headless rounds (all 30 games with 2 and 4 players).
+  - Online play with the exported exe (host + client, lobby taps, no desync).
+  - Online play between the PC and a Pixel 10.
+  - Local play on the phone.
+  - Background CPU on the phone is 0-0.6% (it was about 10%).
+- **Package assets:** `build/release/v2.0.0`. Notes: `build/release/NOTES-2.0.0.md`.
+
+## Open
+- The user wants the old web version removed (`Test Subject Social/game`, `android/`, `play.py`, `serve.py`, `build_exe.py`, `build_apk.py`). The Godot APK still needs `android/app/src/main/cpp/tss_eos.c`. Confirm with the user before deleting.
+- The interim test app `com.testsubjectsocial.godot` is still installed on the user's phone.
