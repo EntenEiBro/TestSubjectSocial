@@ -46,7 +46,7 @@ func _init() -> void:
 	feed_box = UI.vbox([], 0.5, false)
 	feed_box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	feed_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	feed_box.position = Vector2(-UI.u(2) - 500, UI.u(11))
+	feed_box.position = Vector2(-UI.u(2) - 500, UI.u(17))   # below the top-right player panel
 	feed_box.size = Vector2(500, 300)
 	add_child(feed_box)
 	clear()

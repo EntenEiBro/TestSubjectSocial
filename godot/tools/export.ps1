@@ -43,8 +43,16 @@ $out = if ($Target -eq "android") { "$root\build\godot\android\Test Subject Soci
 New-Item -ItemType Directory -Force (Split-Path $out) | Out-Null
 $tmp = Join-Path $env:TEMP ("exp_" + [guid]::NewGuid().ToString("N"))
 $args = @("--headless", "--path", "`"$proj`"", "--export-release", "`"$preset`"", "`"$out`"")
+$start = Get-Date
 $p = Start-Process -FilePath $godot -ArgumentList $args -NoNewWindow -PassThru -RedirectStandardOutput "$tmp.out" -RedirectStandardError "$tmp.err"
-if (-not $p.WaitForExit($Timeout * 1000)) { $p.Kill(); "!!! export TIMEOUT" }
+# The console wrapper sometimes keeps running after the real export process has
+# finished: stop waiting once the export process is gone.
+while (-not $p.HasExited) {
+  if (((Get-Date) - $start).TotalSeconds -gt $Timeout) { $p.Kill(); "!!! export TIMEOUT"; break }
+  Start-Sleep -Seconds 3
+  $worker = Get-CimInstance Win32_Process -Filter "Name='Godot_v4.7.2-stable_win64.exe'" | Where-Object { $_.CommandLine -match "export-release" }
+  if (-not $worker -and ((Get-Date) - $start).TotalSeconds -gt 20) { Start-Sleep -Seconds 2; if (-not $p.HasExited) { $p.Kill() }; break }
+}
 Select-String -Path "$tmp.out", "$tmp.err" -Pattern "ERROR|error:|FAILED|BUILD|savepack|export" | Where-Object { $_.Line -notmatch "leaked|PagedAllocator|~Dependency" } | Select-Object -Last 40 | ForEach-Object { $_.Line }
 Remove-Item "$tmp.out", "$tmp.err" -ErrorAction SilentlyContinue
 if (-not (Test-Path $out)) { "!!! no output at $out"; exit 1 }

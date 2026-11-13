@@ -437,9 +437,13 @@ func _unhandled_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
 		Sfx.suspend()
+		# Battery: barely run while not in front (in the background Android also
+		# stops the render loop; this covers "visible but unfocused" too).
+		Engine.max_fps = 10 if platform == "android" else 30
 		if game and is_instance_valid(game) and game.state == "play" and not paused and not Net.is_client() and platform == "android":
 			open_pause()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+		Engine.max_fps = 0
 		Sfx.resume()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		# Android back button behaves like Esc (pause / back in menus).
@@ -620,6 +624,8 @@ func _net_test_host() -> void:
 
 ## Save a screenshot of the window now (tests).
 func snap(path: String) -> void:
+	if DisplayServer.get_name() == "headless":
+		return   # nothing is drawn headless (frame_post_draw would never arrive)
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	print("screenshot ", ProjectSettings.globalize_path(path))

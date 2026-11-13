@@ -112,10 +112,15 @@ func _process(delta: float) -> void:
 			_music_b.stop()
 
 
-## Silence everything (app sent to the background) / continue.
+## App sent to the background: pause every stream (not just mute: paused
+## players stop mixing, so the audio output can go idle and save battery).
 func suspend() -> void:
 	AudioServer.set_bus_mute(0, true)
+	for p in _pool + [_music_a, _music_b]:
+		p.stream_paused = true
 
 
 func resume() -> void:
+	for p in _pool + [_music_a, _music_b]:
+		p.stream_paused = false
 	AudioServer.set_bus_mute(0, volume.master <= 0.001)

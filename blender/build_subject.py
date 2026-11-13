@@ -60,6 +60,13 @@ def uv_wrap(bm, rep_u=1.0, rep_v=1.0):
 
 
 def build_body():
+    import common
+
+    def obj_from_bm(name, bm, mat, parent=None, pos=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
+        # THREE BoxGeometry semantics: every face gets its own 0..1 UVs, so the
+        # fabric texture of the jumpsuit and skin renders like the web version.
+        return common.obj_from_bm(name, uv_faces(bm), mat, parent, pos, rot, scale)
+
     suit = material("suit", 0xffffff, "fabric")
     suit_dark = material("suitDark", 0xa6a6a6, "fabric")
     skin = material("skin", 0xffffff, "fabric")

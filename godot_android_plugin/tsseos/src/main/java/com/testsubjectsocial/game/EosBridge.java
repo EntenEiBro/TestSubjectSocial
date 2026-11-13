@@ -26,7 +26,8 @@ import java.nio.charset.StandardCharsets;
  */
 final class EosBridge {
     private static final String TAG = "TSS-EOS";
-    private static final long TICK_MS = 4;
+    private static final long TICK_MS = 4;        // in a room: low latency
+    private static final long IDLE_TICK_MS = 50;  // logged in, no room: save battery
 
     private final Activity activity;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -35,15 +36,19 @@ final class EosBridge {
 
     private boolean started;
     private boolean running;
+    private boolean foreground = true;          // main thread only
+    private volatile boolean inRoom;            // hosting or joined (fast ticks)
     private volatile String state = "idle";   // idle | starting | ready | error | unavailable
     private volatile String user, code, message;
 
+    // Ticks the SDK on the main thread: every 4 ms in a room, every 50 ms when
+    // idle, and not at all while the app is in the background (battery).
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
-            if (!running) return;
+            if (!running || !foreground) return;
             nativeTick();
-            main.postDelayed(this, TICK_MS);
+            main.postDelayed(this, inRoom ? TICK_MS : IDLE_TICK_MS);
         }
     };
 
@@ -65,9 +70,15 @@ final class EosBridge {
         return o.toString();
     }
 
-    void host() { ensureStarted(); main.post(() -> { if (running) nativeHost(); }); }
+    void host() { ensureStarted(); main.post(() -> { if (running) { inRoom = true; nativeHost(); kick(); } }); }
 
-    void join(String roomCode) { ensureStarted(); main.post(() -> { if (running) nativeJoin(roomCode); }); }
+    void join(String roomCode) { ensureStarted(); main.post(() -> { if (running) { inRoom = true; nativeJoin(roomCode); kick(); } }); }
+
+    /** Restart the tick loop now (switching from idle to fast ticks). Main thread. */
+    private void kick() {
+        main.removeCallbacks(tick);
+        if (running && foreground) main.post(tick);
+    }
 
     /** batch: [[peer, channel, mode, text], ...] - everything the game sent in one frame. */
     void send(String batchJson) {
@@ -86,7 +97,7 @@ final class EosBridge {
 
     void stop() {
         code = null;
-        main.post(() -> { if (running) nativeStop(); });
+        main.post(() -> { if (running) nativeStop(); inRoom = false; });
     }
 
     /** Events since the last call as a JSON array ("" when there are none). */
@@ -101,7 +112,17 @@ final class EosBridge {
 
     // ------------------------------------------------------------ lifecycle
 
-    void setForeground(boolean foreground) { main.post(() -> { if (running) nativeSetForeground(foreground); }); }
+    /** App to the background: tell EOS and stop ticking; back in front: resume. */
+    void setForeground(boolean fg) {
+        main.post(() -> {
+            foreground = fg;
+            if (!running) return;
+            nativeSetForeground(fg);
+            main.removeCallbacks(tick);
+            if (fg) main.post(tick);
+            else nativeTick();   // one last tick so the status change goes out
+        });
+    }
 
     void destroy() {
         main.post(() -> {

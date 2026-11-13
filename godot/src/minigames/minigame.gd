@@ -287,12 +287,15 @@ func _warm_up() -> void:
 		warm.add_child(s.root)
 		avatars.append(s)
 		x += 0.2
+	# By id, not by reference: the round may be rebuilt (and the node freed) before the timer fires.
+	var warm_id := warm.get_instance_id()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.create_timer(0.6).timeout.connect(func():
 		for s in avatars:
 			s.dispose()
-		if is_instance_valid(warm):
-			warm.queue_free())
+		var w = instance_from_id(warm_id)
+		if w:
+			w.queue_free())
 
 
 func _collect_lights(node: Node, out: Array) -> void:

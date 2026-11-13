@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bwo4bt1eps2bh"]
 
-[ext_resource type="Script" path="res://tools/live_preview.gd" id="1"]
+[ext_resource type="Script" uid="uid://bvuk0fpxixwme" path="res://tools/live_preview.gd" id="1"]
 
-[node name="LivePreview" type="Node3D"]
+[node name="LivePreview" type="Node3D" unique_id=291841220]
+visible = false
 script = ExtResource("1")
